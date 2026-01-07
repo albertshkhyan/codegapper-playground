@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { generateGaps } from '../shared/lib/gapEngine';
 import type { Segment } from '../shared/lib/gapEngine/types';
+import type { GapSettings } from '../shared/lib/gapEngine/settings';
+import { defaultGapSettings } from '../shared/lib/gapEngine/settings';
 
 interface GapStore {
   // State
@@ -8,11 +10,14 @@ interface GapStore {
   segments: Segment[];
   answerKey: Record<number, string>;
   userAnswers: Record<number, string>;
+  gapSettings: GapSettings;
   
   // Actions
   setInputCode: (code: string) => void;
   generateGaps: () => void;
   setUserAnswer: (gapId: number, value: string) => void;
+  setGapSettings: (settings: GapSettings) => void;
+  resetGapSettings: () => void;
   validateAnswers: () => {
     correctCount: number;
     totalCount: number;
@@ -28,6 +33,7 @@ const initialState = {
   segments: [] as Segment[],
   answerKey: {},
   userAnswers: {},
+  gapSettings: defaultGapSettings,
 };
 
 export const useGapStore = create<GapStore>((set, get) => ({
@@ -38,13 +44,13 @@ export const useGapStore = create<GapStore>((set, get) => ({
   },
 
   generateGaps: () => {
-    const { inputCode } = get();
+    const { inputCode, gapSettings } = get();
     if (!inputCode.trim()) {
       return;
     }
 
     try {
-      const { segments, answerKey } = generateGaps(inputCode);
+      const { segments, answerKey } = generateGaps(inputCode, gapSettings);
       set({
         segments,
         answerKey,
@@ -54,6 +60,14 @@ export const useGapStore = create<GapStore>((set, get) => ({
       console.error('Failed to generate gaps:', error);
       // Keep existing state on error
     }
+  },
+
+  setGapSettings: (settings: GapSettings) => {
+    set({ gapSettings: settings });
+  },
+
+  resetGapSettings: () => {
+    set({ gapSettings: defaultGapSettings });
   },
 
   setUserAnswer: (gapId: number, value: string) => {
