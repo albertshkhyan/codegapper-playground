@@ -1,26 +1,24 @@
 import React from 'react';
+import { useGapStore } from '../../store/useGapStore';
 
-interface Gap {
-  id: number;
-  placeholder: string;
-  value: string;
-}
+export const GappedCodePanel: React.FC = () => {
+  const gappedCode = useGapStore((state) => state.gappedCode);
+  const userAnswers = useGapStore((state) => state.userAnswers);
+  const setUserAnswer = useGapStore((state) => state.setUserAnswer);
 
-interface GappedCodePanelProps {
-  code: string;
-  gaps: Gap[];
-  onGapChange: (id: number, value: string) => void;
-}
-
-export const GappedCodePanel: React.FC<GappedCodePanelProps> = ({
-  code,
-  gaps,
-  onGapChange,
-}) => {
   const renderCodeWithGaps = () => {
-    const lines = code.split('\n');
+    if (!gappedCode) {
+      return (
+        <div className="text-slate-400 text-sm p-4">
+          Write code in the left panel and click "Generate Gaps" to start.
+        </div>
+      );
+    }
+
+    const lines = gappedCode.split('\n');
     return lines.map((line, lineIndex) => {
-      const gapMatches = line.match(/__\d+__/g);
+      // Match gap placeholders: ___1___, ___2___, etc.
+      const gapMatches = line.match(/___\d+___/g);
       
       if (!gapMatches) {
         return (
@@ -35,7 +33,8 @@ export const GappedCodePanel: React.FC<GappedCodePanelProps> = ({
       const parts: React.ReactNode[] = [];
       
       gapMatches.forEach((match) => {
-        const gapId = parseInt(match.replace(/__/g, ''), 10);
+        // Extract gap ID from ___1___ format
+        const gapId = parseInt(match.replace(/___/g, ''), 10);
         const matchIndex = line.indexOf(match, lastIndex);
         
         if (matchIndex > lastIndex) {
@@ -46,13 +45,13 @@ export const GappedCodePanel: React.FC<GappedCodePanelProps> = ({
           );
         }
         
-        const gap = gaps.find((g) => g.id === gapId);
+        const userAnswer = userAnswers[gapId] || '';
         parts.push(
           <input
             key={`gap-${gapId}`}
             type="text"
-            value={gap?.value || ''}
-            onChange={(e) => onGapChange(gapId, e.target.value)}
+            value={userAnswer}
+            onChange={(e) => setUserAnswer(gapId, e.target.value)}
             placeholder={match}
             className="inline-block min-w-[100px] px-2 py-0.5 bg-slate-900 border border-slate-600 rounded text-slate-200 font-mono text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 placeholder:text-slate-500"
           />

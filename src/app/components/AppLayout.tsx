@@ -4,37 +4,7 @@ import { CodeEditorPanel } from './CodeEditorPanel';
 import { GappedCodePanel } from './GappedCodePanel';
 import { ResultsPanel } from './ResultsPanel';
 
-interface Gap {
-  id: number;
-  placeholder: string;
-  value: string;
-}
-
-interface AppLayoutProps {
-  originalCode: string;
-  gappedCode: string;
-  gaps: Gap[];
-  onGapChange: (id: number, value: string) => void;
-  correctCount: number;
-  totalCount: number;
-  correctGaps: number[];
-  incorrectGaps: number[];
-  hint: string;
-  onShowAnswers: () => void;
-}
-
-export const AppLayout: React.FC<AppLayoutProps> = ({
-  originalCode,
-  gappedCode,
-  gaps,
-  onGapChange,
-  correctCount,
-  totalCount,
-  correctGaps,
-  incorrectGaps,
-  hint,
-  onShowAnswers,
-}) => {
+export const AppLayout: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-slate-950">
       <Header />
@@ -42,24 +12,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <div className="max-w-[1400px] mx-auto h-full flex flex-col">
           <div className="flex-1 grid grid-cols-2 gap-4 mb-4 min-h-0">
             <div className="min-h-0">
-              <CodeEditorPanel code={originalCode} />
+              <CodeEditorPanel />
             </div>
             <div className="min-h-0">
-              <GappedCodePanel
-                code={gappedCode}
-                gaps={gaps}
-                onGapChange={onGapChange}
-              />
+              <GappedCodePanel />
             </div>
           </div>
-          <ResultsPanel
-            correctCount={correctCount}
-            totalCount={totalCount}
-            correctGaps={correctGaps}
-            incorrectGaps={incorrectGaps}
-            hint={hint}
-            onShowAnswers={onShowAnswers}
-          />
+          <ResultsPanel />
         </div>
       </div>
     </div>
