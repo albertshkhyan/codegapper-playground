@@ -94,18 +94,22 @@ export const GappedCodePanel: React.FC = () => {
                     if (segment.kind === 'text') {
                       // Render highlighted code using dangerouslySetInnerHTML
                       const highlighted = highlightCodeSegment(segment.value);
+                      // Use segment value hash in key to force re-render when content changes
+                      const textKey = `line-${lineIndex}-seg-${segmentIndex}-${segment.value.substring(0, 20).replace(/\s/g, '_')}`;
                       return (
                         <span
-                          key={`line-${lineIndex}-seg-${segmentIndex}`}
+                          key={textKey}
                           dangerouslySetInnerHTML={{ __html: highlighted }}
                           className="inline"
                         />
                       );
                     } else {
                       const userAnswer = userAnswers[segment.id] || '';
+                      // Use segment answer in key to force re-render when gap position/answer changes
+                      const gapKey = `line-${lineIndex}-gap-${segment.id}-${segment.answer}`;
                       return (
                         <input
-                          key={`line-${lineIndex}-gap-${segment.id}`}
+                          key={gapKey}
                           type="text"
                           value={userAnswer}
                           onChange={(e) => setUserAnswer(segment.id, e.target.value)}

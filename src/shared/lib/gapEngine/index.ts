@@ -1,5 +1,5 @@
 import { parseCodeToAST } from './parse';
-import { collectGapNodes } from './gapStrategy';
+import { collectAllEligibleNodes, selectRandomGapNodes } from './gapStrategy';
 import type { Segment } from './types';
 
 export interface GapResult {
@@ -8,16 +8,20 @@ export interface GapResult {
 }
 
 /**
- * Main pipeline: Parse → Collect Gap Nodes → Build Segments
+ * Main pipeline: Parse → Collect ALL Eligible Nodes → Randomize → Select → Build Segments
+ * Each call regenerates segments from scratch with random node selection
  */
-export function generateGaps(code: string): GapResult {
-  // Step 1: Parse code to AST with location tracking
+export function generateGaps(code: string, maxGaps?: number): GapResult {
+  // Step 1: Parse code to AST with location tracking (always fresh parse)
   const ast = parseCodeToAST(code);
 
-  // Step 2: Collect eligible nodes with positions from original code
-  const gapNodes = collectGapNodes(ast, code);
+  // Step 2: Collect ALL eligible nodes (no IDs assigned yet)
+  const eligibleNodes = collectAllEligibleNodes(ast, code);
 
-  // Step 3: Build segments by slicing original code
+  // Step 3: Randomize and select gap nodes (assigns IDs)
+  const gapNodes = selectRandomGapNodes(eligibleNodes, maxGaps);
+
+  // Step 4: Build segments by slicing original code
   const segments: Segment[] = [];
   const answerKey: Record<number, string> = {};
   let cursor = 0;
@@ -64,5 +68,5 @@ export function generateGaps(code: string): GapResult {
   return { segments, answerKey };
 }
 
-export { parseCodeToAST, collectGapNodes };
-export type { Segment };
+export { parseCodeToAST, collectAllEligibleNodes, selectRandomGapNodes };
+export type { Segment } from './types';
