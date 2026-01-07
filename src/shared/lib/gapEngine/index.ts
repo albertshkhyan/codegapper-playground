@@ -40,6 +40,26 @@ export function generateGaps(code: string, settings?: GapSettings): GapResult {
     throw parseError;
   }
 
+  // Check if any node types are enabled
+  const hasEnabledNodeTypes = 
+    gapSettings.nodeTypes.properties ||
+    gapSettings.nodeTypes.functions ||
+    gapSettings.nodeTypes.operators ||
+    gapSettings.nodeTypes.variables ||
+    gapSettings.nodeTypes.keywords ||
+    gapSettings.nodeTypes.literals.strings ||
+    gapSettings.nodeTypes.literals.numbers ||
+    gapSettings.nodeTypes.literals.booleans ||
+    gapSettings.nodeTypes.literals.nullUndefined;
+  
+  if (!hasEnabledNodeTypes) {
+    console.warn('[DEBUG] No node types are enabled. Please enable at least one node type in Gap Settings.');
+    return {
+      segments: [{ kind: 'text', value: code }],
+      answerKey: {},
+    };
+  }
+
   // Step 2: Collect ALL eligible nodes based on settings (no IDs assigned yet)
   let eligibleNodes: ReturnType<typeof collectAllEligibleNodes>;
   try {

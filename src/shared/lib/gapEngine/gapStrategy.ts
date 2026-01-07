@@ -8,7 +8,8 @@ import type {
   BinaryExpression, 
   LogicalExpression,
   FunctionDeclaration,
-  FunctionExpression
+  FunctionExpression,
+  ArrowFunctionExpression
 } from 'estree';
 import type { GapSettings } from './settings';
 import { shouldExcludeNode, calculateTargetGapCount } from './filters';
@@ -215,6 +216,52 @@ export function collectAllEligibleNodes(
                 answer,
               });
             }
+          }
+        }
+      }
+
+      // Gap function parameters (item, index in forEach((item, index) => ...))
+      if (settings.nodeTypes.variables) {
+        if (
+          node.type === 'ArrowFunctionExpression' ||
+          node.type === 'FunctionExpression' ||
+          node.type === 'FunctionDeclaration'
+        ) {
+          console.log('[DEBUG] Found function node:', node.type);
+          const funcNode = node as ArrowFunctionExpression | FunctionExpression | FunctionDeclaration;
+          
+          if (funcNode.params && Array.isArray(funcNode.params)) {
+            console.log('[DEBUG] Function has params:', funcNode.params.length, funcNode.params.map((p) => (p as Node).type));
+            funcNode.params.forEach((param) => {
+              // Only handle Identifier parameters (not destructured like {x, y} or [a, b])
+              if (param.type === 'Identifier') {
+                const paramNode = param as NodeWithLocation;
+                
+                if (paramNode.start !== undefined && paramNode.end !== undefined) {
+                  const answer = originalCode.substring(paramNode.start, paramNode.end);
+                  console.log('[DEBUG] Function parameter found:', answer, 'at', paramNode.start, '-', paramNode.end);
+                  console.log('[DEBUG] Checking exclusion for:', answer, 'exclusions:', JSON.stringify(settings.exclusions.customList));
+                  
+                  const shouldExclude = shouldExcludeNode(answer, settings);
+                  console.log('[DEBUG] Should exclude?', shouldExclude);
+                  
+                  if (!shouldExclude) {
+                    console.log('[DEBUG] Adding parameter to eligible nodes:', answer);
+                    eligibleNodes.push({
+                      start: paramNode.start,
+                      end: paramNode.end,
+                      answer,
+                    });
+                  } else {
+                    console.log('[DEBUG] Parameter excluded:', answer);
+                  }
+                }
+              } else {
+                console.log('[DEBUG] Parameter is not Identifier, type:', param.type);
+              }
+            });
+          } else {
+            console.log('[DEBUG] Function has no params or params is not array');
           }
         }
       }

@@ -85,7 +85,14 @@ export function shouldExcludeNode(answer: string, settings: GapSettings): boolea
   // Check custom exclusion list
   if (exclusions.customList.length > 0) {
     const lowerAnswer = answer.toLowerCase();
-    if (exclusions.customList.some((excluded) => excluded.toLowerCase() === lowerAnswer)) {
+    const matches = exclusions.customList.some((excluded) => excluded.toLowerCase() === lowerAnswer);
+    console.log('[DEBUG] shouldExcludeNode - checking customList:', {
+      answer,
+      lowerAnswer,
+      customList: exclusions.customList,
+      matches
+    });
+    if (matches) {
       return true;
     }
   }

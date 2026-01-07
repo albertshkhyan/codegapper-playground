@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { useGapStore } from '../../store/useGapStore';
 import type { GapSettings } from '../../shared/lib/gapEngine/settings';
@@ -21,6 +21,8 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
 
   // Local form state (initialized from store)
   const [localSettings, setLocalSettings] = useState<GapSettings>(gapSettings);
+  const [customExclusionInput, setCustomExclusionInput] = useState('');
+  const customExclusionInputRef = useRef<HTMLInputElement>(null);
 
   // Sync local state when modal opens or store changes
   useEffect(() => {
@@ -107,13 +109,49 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
     });
   };
 
-  // Handle custom exclusion list change
-  const handleCustomExclusionListChange = (value: string) => {
-    const list = value
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    handleExclusionChange('customList', list);
+  // Handle adding a chip to custom exclusion list
+  const handleAddCustomExclusion = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return;
+    
+    // Prevent duplicates (case-insensitive)
+    const lowerTrimmed = trimmed.toLowerCase();
+    const isDuplicate = localSettings.exclusions.customList.some(
+      (item) => item.toLowerCase() === lowerTrimmed
+    );
+    
+    if (isDuplicate) return;
+    
+    setLocalSettings((prev) => ({
+      ...prev,
+      exclusions: {
+        ...prev.exclusions,
+        customList: [...prev.exclusions.customList, trimmed],
+      },
+      difficulty: 'custom',
+    }));
+    
+    setCustomExclusionInput('');
+  };
+
+  // Handle removing a chip from custom exclusion list
+  const handleRemoveCustomExclusion = (indexToRemove: number) => {
+    setLocalSettings((prev) => ({
+      ...prev,
+      exclusions: {
+        ...prev.exclusions,
+        customList: prev.exclusions.customList.filter((_, index) => index !== indexToRemove),
+      },
+      difficulty: 'custom',
+    }));
+  };
+
+  // Handle custom exclusion input keydown
+  const handleCustomExclusionInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      handleAddCustomExclusion(customExclusionInput);
+    }
   };
 
   // Handle apply
@@ -297,7 +335,7 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
                       onChange={(e) => handleNodeTypeChange('variables', e.target.checked)}
                       className="text-slate-400"
                     />
-                    Variables (let x, const y)
+                    Variables (let x, const y, function params)
                   </label>
                   <label className="flex items-center gap-2 text-sm text-slate-300">
                     <input
@@ -360,7 +398,7 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
                       onChange={() => handleDifficultyChange('custom')}
                       className="text-slate-400"
                     />
-                    Custom
+                    Manual
                   </label>
                 </div>
               </div>
@@ -396,26 +434,66 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
                     />
                     Single-letter vars (i, j, x, y)
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={localSettings.exclusions.customList.length > 0}
-                      onChange={(e) => {
-                        if (!e.target.checked) {
-                          handleExclusionChange('customList', []);
-                        }
-                      }}
-                      className="text-slate-400"
-                    />
-                    Custom list:
-                    <input
-                      type="text"
-                      placeholder="comma-separated"
-                      value={localSettings.exclusions.customList.join(', ')}
-                      onChange={(e) => handleCustomExclusionListChange(e.target.value)}
-                      className="flex-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-slate-200 text-xs"
-                    />
-                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={localSettings.exclusions.customList.length > 0}
+                        onChange={(e) => {
+                          if (!e.target.checked) {
+                            handleExclusionChange('customList', []);
+                          }
+                        }}
+                        className="text-slate-400"
+                      />
+                      Custom list:
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2 px-2 py-1.5 min-h-[32px] bg-slate-900 border border-slate-600 rounded text-slate-200 text-xs focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                      {/* Chips */}
+                      {localSettings.exclusions.customList.map((item, index) => (
+                        <div
+                          key={`${item}-${index}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded-full text-slate-100 text-xs transition-colors"
+                        >
+                          <span>{item}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomExclusion(index)}
+                            className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-900"
+                            aria-label={`Remove ${item}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {/* Input */}
+                      <input
+                        ref={customExclusionInputRef}
+                        type="text"
+                        placeholder={localSettings.exclusions.customList.length === 0 ? "Type and press Enter" : ""}
+                        value={customExclusionInput}
+                        onChange={(e) => {
+                          // Handle comma on input change
+                          const value = e.target.value;
+                          if (value.includes(',')) {
+                            const parts = value.split(',');
+                            parts.forEach((part, idx) => {
+                              if (idx < parts.length - 1) {
+                                handleAddCustomExclusion(part);
+                              } else {
+                                setCustomExclusionInput(part);
+                              }
+                            });
+                          } else {
+                            setCustomExclusionInput(value);
+                          }
+                        }}
+                        onKeyDown={handleCustomExclusionInputKeyDown}
+                        className="flex-1 min-w-[120px] bg-transparent border-0 outline-none text-slate-200 text-xs placeholder-slate-500"
+                        style={{ width: `${Math.max(120, customExclusionInput.length * 8 + 20)}px` }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
