@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { generateGaps } from '../shared/lib/gapEngine';
+import type { Segment } from '../shared/lib/gapEngine/types';
 
 interface GapStore {
   // State
   inputCode: string;
-  gappedCode: string;
+  segments: Segment[];
   answerKey: Record<number, string>;
   userAnswers: Record<number, string>;
   
@@ -24,7 +25,7 @@ interface GapStore {
 
 const initialState = {
   inputCode: '',
-  gappedCode: '',
+  segments: [] as Segment[],
   answerKey: {},
   userAnswers: {},
 };
@@ -43,9 +44,9 @@ export const useGapStore = create<GapStore>((set, get) => ({
     }
 
     try {
-      const { gappedCode, answerKey } = generateGaps(inputCode);
+      const { segments, answerKey } = generateGaps(inputCode);
       set({
-        gappedCode,
+        segments,
         answerKey,
         userAnswers: {}, // Reset user answers when generating new gaps
       });

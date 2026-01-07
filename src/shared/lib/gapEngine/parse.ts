@@ -10,6 +10,7 @@ export function parseCodeToAST(code: string): Node {
     const ast = parse(code, {
       ecmaVersion: 'latest',
       sourceType: 'module',
+      locations: true, // Enable location tracking for start/end positions
     }) as unknown as Node;
     return ast;
   } catch (error) {
