@@ -1,0 +1,107 @@
+/* Prism.js dark theme for CodeGapper */
+/* Customized to match slate-800/slate-900 dark theme */
+
+code[class*="language-"],
+pre[class*="language-"] {
+  color: #e2e8f0; /* slate-200 */
+  background: none;
+  text-shadow: none;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 14px;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  line-height: 1.5;
+  tab-size: 2;
+  hyphens: none;
+}
+
+pre[class*="language-"] {
+  padding: 0;
+  margin: 0;
+  overflow: auto;
+}
+
+:not(pre) > code[class*="language-"],
+pre[class*="language-"] {
+  background: transparent;
+}
+
+/* Inline code */
+:not(pre) > code[class*="language-"] {
+  padding: 0;
+  border-radius: 0;
+  white-space: normal;
+}
+
+/* Token colors matching dark theme */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #64748b; /* slate-500 */
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #cbd5e1; /* slate-300 */
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f87171; /* red-400 */
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #4ade80; /* green-400 */
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #60a5fa; /* blue-400 */
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #a78bfa; /* violet-400 */
+}
+
+.token.function,
+.token.class-name {
+  color: #fbbf24; /* amber-400 */
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #fb7185; /* rose-400 */
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
