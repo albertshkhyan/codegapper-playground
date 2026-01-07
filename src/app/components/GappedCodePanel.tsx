@@ -21,6 +21,15 @@ export const GappedCodePanel: React.FC = () => {
   const segments = useGapStore((state) => state.segments);
   const userAnswers = useGapStore((state) => state.userAnswers);
   const setUserAnswer = useGapStore((state) => state.setUserAnswer);
+  const hasChecked = useGapStore((state) => state.hasChecked);
+  const validateAnswers = useGapStore((state) => state.validateAnswers);
+  
+  // Only get validation status if answers have been checked
+  const validation = hasChecked ? validateAnswers() : {
+    correctGaps: [] as number[],
+    incorrectGaps: [] as number[],
+  };
+  const { correctGaps, incorrectGaps } = validation;
 
   // Process segments into lines for rendering with line numbers
   const processedLines = useMemo(() => {
@@ -105,16 +114,40 @@ export const GappedCodePanel: React.FC = () => {
                       );
                     } else {
                       const userAnswer = userAnswers[segment.id] || '';
+                      const gapId = segment.id;
+                      
+                      // Only show color-coded borders after checking answers
+                      let borderClasses = 'border-2 transition-colors duration-200';
+                      if (hasChecked) {
+                        // Determine gap status for color-coded borders
+                        const isCorrect = correctGaps.includes(gapId);
+                        const isIncorrect = incorrectGaps.includes(gapId);
+                        const isEmpty = !userAnswer.trim();
+                        
+                        if (isCorrect) {
+                          borderClasses += ' border-green-500 focus:border-green-400 focus:ring-2 focus:ring-green-500/30';
+                        } else if (isIncorrect) {
+                          borderClasses += ' border-red-500 focus:border-red-400 focus:ring-2 focus:ring-red-500/30';
+                        } else if (isEmpty) {
+                          borderClasses += ' border-yellow-500/60 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/30';
+                        } else {
+                          borderClasses += ' border-slate-600 focus:border-slate-500 focus:ring-1 focus:ring-slate-500';
+                        }
+                      } else {
+                        // Default border before checking
+                        borderClasses += ' border-slate-600 focus:border-slate-500 focus:ring-1 focus:ring-slate-500';
+                      }
+                      
                       // Use segment answer in key to force re-render when gap position/answer changes
-                      const gapKey = `line-${lineIndex}-gap-${segment.id}-${segment.answer}`;
+                      const gapKey = `line-${lineIndex}-gap-${gapId}-${segment.answer}`;
                       return (
                         <input
                           key={gapKey}
                           type="text"
                           value={userAnswer}
-                          onChange={(e) => setUserAnswer(segment.id, e.target.value)}
-                          placeholder={`gap ${segment.id}`}
-                          className="inline-block min-w-[100px] px-2 py-0.5 mx-0.5 bg-slate-900 border border-slate-600 rounded text-slate-200 font-mono text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 placeholder:text-slate-500 align-baseline"
+                          onChange={(e) => setUserAnswer(gapId, e.target.value)}
+                          placeholder={`gap ${gapId}`}
+                          className={`inline-block min-w-[100px] px-2 py-0.5 mx-0.5 bg-slate-900 rounded text-slate-200 font-mono text-sm focus:outline-none placeholder:text-slate-500 align-baseline ${borderClasses}`}
                         />
                       );
                     }

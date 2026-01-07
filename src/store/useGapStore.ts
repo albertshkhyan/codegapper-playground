@@ -11,6 +11,7 @@ interface GapStore {
   answerKey: Record<number, string>;
   userAnswers: Record<number, string>;
   gapSettings: GapSettings;
+  hasChecked: boolean;
   
   // Actions
   setInputCode: (code: string) => void;
@@ -18,6 +19,7 @@ interface GapStore {
   setUserAnswer: (gapId: number, value: string) => void;
   setGapSettings: (settings: GapSettings) => void;
   resetGapSettings: () => void;
+  setHasChecked: (checked: boolean) => void;
   validateAnswers: () => {
     correctCount: number;
     totalCount: number;
@@ -34,6 +36,7 @@ const initialState = {
   answerKey: {},
   userAnswers: {},
   gapSettings: defaultGapSettings,
+  hasChecked: false,
 };
 
 export const useGapStore = create<GapStore>((set, get) => ({
@@ -73,6 +76,7 @@ export const useGapStore = create<GapStore>((set, get) => ({
         segments,
         answerKey,
         userAnswers: {}, // Reset user answers when generating new gaps
+        hasChecked: false, // Reset checked state when generating new gaps
       });
     } catch (error) {
       console.error('[DEBUG] Failed to generate gaps:', error);
@@ -99,6 +103,10 @@ export const useGapStore = create<GapStore>((set, get) => ({
         [gapId]: value.trim(),
       },
     }));
+  },
+
+  setHasChecked: (checked: boolean) => {
+    set({ hasChecked: checked });
   },
 
   validateAnswers: () => {
