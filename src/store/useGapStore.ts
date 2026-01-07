@@ -45,19 +45,41 @@ export const useGapStore = create<GapStore>((set, get) => ({
 
   generateGaps: () => {
     const { inputCode, gapSettings } = get();
+    console.log('[DEBUG] generateGaps called');
+    console.log('[DEBUG] inputCodeLength:', inputCode.length);
+    console.log('[DEBUG] gapSettings:', JSON.stringify(gapSettings, null, 2));
+    
     if (!inputCode.trim()) {
+      console.warn('[DEBUG] Input code is empty');
       return;
     }
 
     try {
       const { segments, answerKey } = generateGaps(inputCode, gapSettings);
+      console.log('[DEBUG] Generated gaps - segmentsCount:', segments.length);
+      console.log('[DEBUG] Generated gaps - answerKeyCount:', Object.keys(answerKey).length);
+      console.log('[DEBUG] Generated gaps - answerKey:', JSON.stringify(answerKey, null, 2));
+      console.log('[DEBUG] Generated gaps - first 5 segments:', JSON.stringify(
+        segments.slice(0, 5).map(s => 
+          s.kind === 'gap' 
+            ? { kind: 'gap', id: s.id, answer: s.answer }
+            : { kind: 'text', value: s.value.substring(0, 50) + '...' }
+        ), 
+        null, 
+        2
+      ));
+      
       set({
         segments,
         answerKey,
         userAnswers: {}, // Reset user answers when generating new gaps
       });
     } catch (error) {
-      console.error('Failed to generate gaps:', error);
+      console.error('[DEBUG] Failed to generate gaps:', error);
+      if (error instanceof Error) {
+        console.error('[DEBUG] Error message:', error.message);
+        console.error('[DEBUG] Error stack:', error.stack);
+      }
       // Keep existing state on error
     }
   },

@@ -1,5 +1,15 @@
 import { traverse } from 'estraverse';
-import type { Node, MemberExpression, CallExpression, Literal, VariableDeclarator, BinaryExpression, LogicalExpression } from 'estree';
+import type { 
+  Node, 
+  MemberExpression, 
+  CallExpression, 
+  Literal, 
+  VariableDeclarator, 
+  BinaryExpression, 
+  LogicalExpression,
+  FunctionDeclaration,
+  FunctionExpression
+} from 'estree';
 import type { GapSettings } from './settings';
 import { shouldExcludeNode, calculateTargetGapCount } from './filters';
 
@@ -46,9 +56,17 @@ export function collectAllEligibleNodes(
   originalCode: string,
   settings: GapSettings
 ): EligibleNode[] {
+  console.log('[DEBUG] collectAllEligibleNodes - called');
+  console.log('[DEBUG] collectAllEligibleNodes - settings:', JSON.stringify({
+    properties: settings.nodeTypes.properties,
+    functions: settings.nodeTypes.functions,
+    operators: settings.nodeTypes.operators,
+  }, null, 2));
+  
   const eligibleNodes: EligibleNode[] = [];
 
-  traverse(ast, {
+  try {
+    traverse(ast, {
     enter(node: Node) {
       // Gap MemberExpression property names (e.g. user.isAdmin)
       if (
@@ -100,40 +118,45 @@ export function collectAllEligibleNodes(
       if (settings.nodeTypes.operators) {
         if (node.type === 'BinaryExpression' || node.type === 'LogicalExpression') {
           const expr = node as BinaryExpression | LogicalExpression;
-          const operatorNode = expr as NodeWithLocation;
+          const operator = expr.operator;
           
-          if (operatorNode.start !== undefined && operatorNode.end !== undefined) {
-            const operator = expr.operator;
+          // Find operator position in source code
+          // The operator is between left.end and right.start
+          const leftNode = expr.left as NodeWithLocation;
+          const rightNode = expr.right as NodeWithLocation;
+          
+          if (leftNode.end !== undefined && rightNode.start !== undefined) {
+            // Extract the code between left and right operands
+            const betweenCode = originalCode.substring(leftNode.end, rightNode.start);
             
-            // Find operator position in source code
-            // The operator is between left.end and right.start
-            const leftNode = expr.left as NodeWithLocation;
-            const rightNode = expr.right as NodeWithLocation;
+            // Find the operator in the code (handle whitespace around it)
+            // The operator from AST should appear in the betweenCode
+            const trimmedBetween = betweenCode.trim();
+            const operatorIndex = trimmedBetween.indexOf(operator);
             
-            if (leftNode.end !== undefined && rightNode.start !== undefined) {
-              // Extract the code between left and right operands
-              const betweenCode = originalCode.substring(leftNode.end, rightNode.start);
+            if (operatorIndex !== -1) {
+              // Calculate actual position accounting for leading whitespace
+              const leadingWhitespace = betweenCode.length - betweenCode.trimStart().length;
+              const operatorStart = leftNode.end + leadingWhitespace + operatorIndex;
+              const operatorEnd = operatorStart + operator.length;
               
-              // Find the operator in the code (handle whitespace around it)
-              // The operator from AST should appear in the betweenCode
-              const trimmedBetween = betweenCode.trim();
-              const operatorIndex = trimmedBetween.indexOf(operator);
-              
-              if (operatorIndex !== -1) {
-                // Calculate actual position accounting for leading whitespace
-                const leadingWhitespace = betweenCode.length - betweenCode.trimStart().length;
-                const operatorStart = leftNode.end + leadingWhitespace + operatorIndex;
-                const operatorEnd = operatorStart + operator.length;
-                
-                // Apply exclusions (operators typically won't be excluded, but check anyway)
-                if (!shouldExcludeNode(operator, settings)) {
-                  eligibleNodes.push({
-                    start: operatorStart,
-                    end: operatorEnd,
-                    answer: operator,
-                  });
-                }
+              // Apply exclusions (operators typically won't be excluded, but check anyway)
+              if (!shouldExcludeNode(operator, settings)) {
+                eligibleNodes.push({
+                  start: operatorStart,
+                  end: operatorEnd,
+                  answer: operator,
+                });
               }
+            } else {
+              // Debug: operator not found in betweenCode
+              console.warn('[DEBUG] Operator not found in code', {
+                operator,
+                betweenCode: JSON.stringify(betweenCode),
+                trimmedBetween: JSON.stringify(trimmedBetween),
+                leftEnd: leftNode.end,
+                rightStart: rightNode.start
+              });
             }
           }
         }
@@ -198,12 +221,175 @@ export function collectAllEligibleNodes(
 
       // Gap keywords (if, return, async, etc.)
       if (settings.nodeTypes.keywords) {
-        // Keywords are handled differently - they're part of the node type itself
-        // For now, we'll skip this as it requires more complex AST manipulation
-        // This can be implemented in a future iteration
+        const nodeWithLocation = node as NodeWithLocation;
+        
+        if (nodeWithLocation.start !== undefined) {
+          // Extract keyword from the beginning of the node
+          let keyword: string | null = null;
+          let keywordStart: number | undefined;
+          let keywordEnd: number | undefined;
+          
+          // IfStatement - extract "if"
+          if (node.type === 'IfStatement') {
+            keyword = 'if';
+            keywordStart = nodeWithLocation.start;
+            // Find "if" at the start of the node
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const ifIndex = nodeStartCode.indexOf('if');
+            if (ifIndex !== -1) {
+              keywordStart = nodeWithLocation.start + ifIndex;
+              keywordEnd = keywordStart + 2;
+            }
+          }
+          
+          // ReturnStatement - extract "return"
+          else if (node.type === 'ReturnStatement') {
+            keyword = 'return';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const returnIndex = nodeStartCode.indexOf('return');
+            if (returnIndex !== -1) {
+              keywordStart = nodeWithLocation.start + returnIndex;
+              keywordEnd = keywordStart + 6;
+            }
+          }
+          
+          // FunctionDeclaration/FunctionExpression with async - extract "async"
+          else if (
+            (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression') &&
+            (node as FunctionDeclaration | FunctionExpression).async
+          ) {
+            keyword = 'async';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const asyncIndex = nodeStartCode.indexOf('async');
+            if (asyncIndex !== -1) {
+              keywordStart = nodeWithLocation.start + asyncIndex;
+              keywordEnd = keywordStart + 5;
+            }
+          }
+          
+          // AwaitExpression - extract "await"
+          else if (node.type === 'AwaitExpression') {
+            keyword = 'await';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const awaitIndex = nodeStartCode.indexOf('await');
+            if (awaitIndex !== -1) {
+              keywordStart = nodeWithLocation.start + awaitIndex;
+              keywordEnd = keywordStart + 5;
+            }
+          }
+          
+          // ForStatement - extract "for"
+          else if (node.type === 'ForStatement') {
+            keyword = 'for';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const forIndex = nodeStartCode.indexOf('for');
+            if (forIndex !== -1) {
+              keywordStart = nodeWithLocation.start + forIndex;
+              keywordEnd = keywordStart + 3;
+            }
+          }
+          
+          // WhileStatement - extract "while"
+          else if (node.type === 'WhileStatement') {
+            keyword = 'while';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const whileIndex = nodeStartCode.indexOf('while');
+            if (whileIndex !== -1) {
+              keywordStart = nodeWithLocation.start + whileIndex;
+              keywordEnd = keywordStart + 5;
+            }
+          }
+          
+          // DoWhileStatement - extract "do"
+          else if (node.type === 'DoWhileStatement') {
+            keyword = 'do';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const doIndex = nodeStartCode.indexOf('do');
+            if (doIndex !== -1) {
+              keywordStart = nodeWithLocation.start + doIndex;
+              keywordEnd = keywordStart + 2;
+            }
+          }
+          
+          // SwitchStatement - extract "switch"
+          else if (node.type === 'SwitchStatement') {
+            keyword = 'switch';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const switchIndex = nodeStartCode.indexOf('switch');
+            if (switchIndex !== -1) {
+              keywordStart = nodeWithLocation.start + switchIndex;
+              keywordEnd = keywordStart + 6;
+            }
+          }
+          
+          // TryStatement - extract "try"
+          else if (node.type === 'TryStatement') {
+            keyword = 'try';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const tryIndex = nodeStartCode.indexOf('try');
+            if (tryIndex !== -1) {
+              keywordStart = nodeWithLocation.start + tryIndex;
+              keywordEnd = keywordStart + 3;
+            }
+          }
+          
+          // ThrowStatement - extract "throw"
+          else if (node.type === 'ThrowStatement') {
+            keyword = 'throw';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const throwIndex = nodeStartCode.indexOf('throw');
+            if (throwIndex !== -1) {
+              keywordStart = nodeWithLocation.start + throwIndex;
+              keywordEnd = keywordStart + 5;
+            }
+          }
+          
+          // BreakStatement - extract "break"
+          else if (node.type === 'BreakStatement') {
+            keyword = 'break';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const breakIndex = nodeStartCode.indexOf('break');
+            if (breakIndex !== -1) {
+              keywordStart = nodeWithLocation.start + breakIndex;
+              keywordEnd = keywordStart + 5;
+            }
+          }
+          
+          // ContinueStatement - extract "continue"
+          else if (node.type === 'ContinueStatement') {
+            keyword = 'continue';
+            const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
+            const continueIndex = nodeStartCode.indexOf('continue');
+            if (continueIndex !== -1) {
+              keywordStart = nodeWithLocation.start + continueIndex;
+              keywordEnd = keywordStart + 8;
+            }
+          }
+          
+          // If we found a keyword, add it to eligible nodes
+          if (keyword && keywordStart !== undefined && keywordEnd !== undefined) {
+            if (!shouldExcludeNode(keyword, settings)) {
+              eligibleNodes.push({
+                start: keywordStart,
+                end: keywordEnd,
+                answer: keyword,
+              });
+            }
+          }
+        }
       }
     },
-  });
+    });
+    
+    console.log('[DEBUG] collectAllEligibleNodes - traverse completed, found:', eligibleNodes.length);
+  } catch (traverseError) {
+    console.error('[DEBUG] collectAllEligibleNodes - traverse failed');
+    console.error('[DEBUG] Traverse error:', JSON.stringify({
+      message: traverseError instanceof Error ? traverseError.message : String(traverseError),
+      stack: traverseError instanceof Error ? traverseError.stack : undefined
+    }, null, 2));
+    throw traverseError;
+  }
 
   return eligibleNodes;
 }
