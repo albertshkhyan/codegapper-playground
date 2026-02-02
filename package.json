@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "test": "vitest run --passWithNoTests",
+    "preview": "vite preview",
+    "stagewise": "npx stagewise@latest",
+    "stagewise:bridge": "npx stagewise@latest -b"
   },
   "dependencies": {
     "@babel/parser": "^7.28.0",
@@ -17,16 +20,17 @@
     "acorn": "^8.15.0",
     "acorn-walk": "^8.3.4",
     "escodegen": "^2.1.0",
-    "estraverse": "^5.3.0",
     "eslint-scope": "^8.4.0",
+    "estraverse": "^5.3.0",
     "esutils": "^2.0.3",
+    "lucide-react": "^0.468.0",
     "mdn-data": "^2.22.1",
     "prettier": "^3.6.2",
     "prism-react-renderer": "^2.4.1",
     "prismjs": "^1.30.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "lucide-react": "^0.468.0",
+    "react-markdown": "^10.1.0",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
@@ -43,6 +47,8 @@
     "tailwindcss": "^3.4.13",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.35.1",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^3.0.0",
+    "vite-plugin-terminal": "^1.4.0"
   }
 }

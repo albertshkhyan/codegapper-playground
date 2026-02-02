@@ -3,7 +3,6 @@ import { X } from 'lucide-react';
 import { useGapStore } from '../../store/useGapStore';
 import type { GapSettings } from '../../shared/lib/gapEngine/settings';
 import { defaultGapSettings, applyDifficultyPreset } from '../../shared/lib/gapEngine/settings';
-
 interface GapSettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -15,6 +14,7 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
   onClose,
   onApply,
 }) => {
+  const gapSettingsRef = useRef<HTMLDivElement>(null);
   const gapSettings = useGapStore((state) => state.gapSettings);
   const setGapSettings = useGapStore((state) => state.setGapSettings);
   const resetGapSettings = useGapStore((state) => state.resetGapSettings);
@@ -170,7 +170,7 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-auto">
+      <div ref={gapSettingsRef} className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <h2 className="text-lg font-semibold text-slate-200">Gap Generation Settings</h2>
@@ -448,7 +448,9 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
                       />
                       Custom list:
                     </label>
-                    <div className="flex flex-wrap items-center gap-2 px-2 py-1.5 min-h-[32px] bg-slate-900 border border-slate-600 rounded text-slate-200 text-xs focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                    <div 
+                      className="flex flex-wrap items-center gap-2 px-2 py-1.5 min-h-[32px] bg-slate-900 border border-slate-600 rounded text-slate-200 text-xs focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
+                    >
                       {/* Chips */}
                       {localSettings.exclusions.customList.map((item, index) => (
                         <div

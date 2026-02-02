@@ -27,49 +27,29 @@ export interface EligibleNode {
   answer: string;
 }
 
-// Acorn adds start/end properties when locations: true, but they're not in ESTree types
 type NodeWithLocation = Node & {
   start?: number;
   end?: number;
 };
 
-/**
- * Fisher-Yates shuffle algorithm for randomizing array order
- */
-function shuffleArray<T>(array: T[]): T[] {
+function shuffleArray<T>(array: T[], random: () => number = Math.random): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
 }
 
-/**
- * Collect ALL eligible AST nodes with their positions from the ORIGINAL code
- * Filters nodes based on settings (node types and exclusions)
- * Does NOT assign IDs - that happens after randomization
- * 
- * Returns array of eligible nodes (unsorted, no IDs)
- */
 export function collectAllEligibleNodes(
   ast: Node,
   originalCode: string,
   settings: GapSettings
 ): EligibleNode[] {
-  console.log('[DEBUG] collectAllEligibleNodes - called');
-  console.log('[DEBUG] collectAllEligibleNodes - settings:', JSON.stringify({
-    properties: settings.nodeTypes.properties,
-    functions: settings.nodeTypes.functions,
-    operators: settings.nodeTypes.operators,
-  }, null, 2));
-  
   const eligibleNodes: EligibleNode[] = [];
 
-  try {
-    traverse(ast, {
+  traverse(ast, {
     enter(node: Node) {
-      // Gap MemberExpression property names (e.g. user.isAdmin)
       if (
         settings.nodeTypes.properties &&
         node.type === 'MemberExpression' &&
@@ -81,7 +61,6 @@ export function collectAllEligibleNodes(
         if (propertyNode.start !== undefined && propertyNode.end !== undefined) {
           const answer = originalCode.substring(propertyNode.start, propertyNode.end);
           
-          // Apply exclusions
           if (!shouldExcludeNode(answer, settings)) {
             eligibleNodes.push({
               start: propertyNode.start,
@@ -92,7 +71,6 @@ export function collectAllEligibleNodes(
         }
       }
 
-      // Gap function call names (e.g. grantAccess())
       if (
         settings.nodeTypes.functions &&
         node.type === 'CallExpression' &&
@@ -104,7 +82,6 @@ export function collectAllEligibleNodes(
         if (calleeNode.start !== undefined && calleeNode.end !== undefined) {
           const answer = originalCode.substring(calleeNode.start, calleeNode.end);
           
-          // Apply exclusions
           if (!shouldExcludeNode(answer, settings)) {
             eligibleNodes.push({
               start: calleeNode.start,
@@ -115,7 +92,6 @@ export function collectAllEligibleNodes(
         }
       }
 
-      // Gap operators (&&, ||, ===, etc.)
       if (settings.nodeTypes.operators) {
         if (node.type === 'BinaryExpression' || node.type === 'LogicalExpression') {
           const expr = node as BinaryExpression | LogicalExpression;
@@ -127,21 +103,15 @@ export function collectAllEligibleNodes(
           const rightNode = expr.right as NodeWithLocation;
           
           if (leftNode.end !== undefined && rightNode.start !== undefined) {
-            // Extract the code between left and right operands
             const betweenCode = originalCode.substring(leftNode.end, rightNode.start);
-            
-            // Find the operator in the code (handle whitespace around it)
-            // The operator from AST should appear in the betweenCode
             const trimmedBetween = betweenCode.trim();
             const operatorIndex = trimmedBetween.indexOf(operator);
             
             if (operatorIndex !== -1) {
-              // Calculate actual position accounting for leading whitespace
               const leadingWhitespace = betweenCode.length - betweenCode.trimStart().length;
               const operatorStart = leftNode.end + leadingWhitespace + operatorIndex;
               const operatorEnd = operatorStart + operator.length;
               
-              // Apply exclusions (operators typically won't be excluded, but check anyway)
               if (!shouldExcludeNode(operator, settings)) {
                 eligibleNodes.push({
                   start: operatorStart,
@@ -149,21 +119,11 @@ export function collectAllEligibleNodes(
                   answer: operator,
                 });
               }
-            } else {
-              // Debug: operator not found in betweenCode
-              console.warn('[DEBUG] Operator not found in code', {
-                operator,
-                betweenCode: JSON.stringify(betweenCode),
-                trimmedBetween: JSON.stringify(trimmedBetween),
-                leftEnd: leftNode.end,
-                rightStart: rightNode.start
-              });
             }
           }
         }
       }
 
-      // Gap literals (strings, numbers, booleans)
       if (
         node.type === 'Literal' &&
         (settings.nodeTypes.literals.strings ||
@@ -178,7 +138,6 @@ export function collectAllEligibleNodes(
           const answer = originalCode.substring(literalNode.start, literalNode.end);
           const value = literal.value;
           
-          // Check if this literal type is enabled
           let shouldInclude = false;
           if (typeof value === 'string' && settings.nodeTypes.literals.strings) {
             shouldInclude = true;
@@ -200,7 +159,6 @@ export function collectAllEligibleNodes(
         }
       }
 
-      // Gap variable declarations (let x, const y)
       if (settings.nodeTypes.variables && node.type === 'VariableDeclarator') {
         const declarator = node as VariableDeclarator;
         if (declarator.id.type === 'Identifier') {
@@ -220,63 +178,44 @@ export function collectAllEligibleNodes(
         }
       }
 
-      // Gap function parameters (item, index in forEach((item, index) => ...))
       if (settings.nodeTypes.variables) {
         if (
           node.type === 'ArrowFunctionExpression' ||
           node.type === 'FunctionExpression' ||
           node.type === 'FunctionDeclaration'
         ) {
-          console.log('[DEBUG] Found function node:', node.type);
           const funcNode = node as ArrowFunctionExpression | FunctionExpression | FunctionDeclaration;
           
           if (funcNode.params && Array.isArray(funcNode.params)) {
-            console.log('[DEBUG] Function has params:', funcNode.params.length, funcNode.params.map((p) => (p as Node).type));
             funcNode.params.forEach((param) => {
-              // Only handle Identifier parameters (not destructured like {x, y} or [a, b])
               if (param.type === 'Identifier') {
                 const paramNode = param as NodeWithLocation;
                 
                 if (paramNode.start !== undefined && paramNode.end !== undefined) {
                   const answer = originalCode.substring(paramNode.start, paramNode.end);
-                  console.log('[DEBUG] Function parameter found:', answer, 'at', paramNode.start, '-', paramNode.end);
-                  console.log('[DEBUG] Checking exclusion for:', answer, 'exclusions:', JSON.stringify(settings.exclusions.customList));
                   
-                  const shouldExclude = shouldExcludeNode(answer, settings);
-                  console.log('[DEBUG] Should exclude?', shouldExclude);
-                  
-                  if (!shouldExclude) {
-                    console.log('[DEBUG] Adding parameter to eligible nodes:', answer);
+                  if (!shouldExcludeNode(answer, settings)) {
                     eligibleNodes.push({
                       start: paramNode.start,
                       end: paramNode.end,
                       answer,
                     });
-                  } else {
-                    console.log('[DEBUG] Parameter excluded:', answer);
                   }
                 }
-              } else {
-                console.log('[DEBUG] Parameter is not Identifier, type:', param.type);
               }
             });
-          } else {
-            console.log('[DEBUG] Function has no params or params is not array');
           }
         }
       }
 
-      // Gap keywords (if, return, async, etc.)
       if (settings.nodeTypes.keywords) {
         const nodeWithLocation = node as NodeWithLocation;
         
         if (nodeWithLocation.start !== undefined) {
-          // Extract keyword from the beginning of the node
           let keyword: string | null = null;
           let keywordStart: number | undefined;
           let keywordEnd: number | undefined;
           
-          // IfStatement - extract "if"
           if (node.type === 'IfStatement') {
             keyword = 'if';
             keywordStart = nodeWithLocation.start;
@@ -289,7 +228,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // ReturnStatement - extract "return"
           else if (node.type === 'ReturnStatement') {
             keyword = 'return';
             const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
@@ -300,7 +238,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // FunctionDeclaration/FunctionExpression with async - extract "async"
           else if (
             (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression') &&
             (node as FunctionDeclaration | FunctionExpression).async
@@ -314,7 +251,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // AwaitExpression - extract "await"
           else if (node.type === 'AwaitExpression') {
             keyword = 'await';
             const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
@@ -336,7 +272,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // WhileStatement - extract "while"
           else if (node.type === 'WhileStatement') {
             keyword = 'while';
             const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
@@ -358,7 +293,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // SwitchStatement - extract "switch"
           else if (node.type === 'SwitchStatement') {
             keyword = 'switch';
             const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
@@ -369,7 +303,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // TryStatement - extract "try"
           else if (node.type === 'TryStatement') {
             keyword = 'try';
             const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
@@ -391,7 +324,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // BreakStatement - extract "break"
           else if (node.type === 'BreakStatement') {
             keyword = 'break';
             const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
@@ -402,7 +334,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // ContinueStatement - extract "continue"
           else if (node.type === 'ContinueStatement') {
             keyword = 'continue';
             const nodeStartCode = originalCode.substring(nodeWithLocation.start, nodeWithLocation.start + 10);
@@ -413,7 +344,6 @@ export function collectAllEligibleNodes(
             }
           }
           
-          // If we found a keyword, add it to eligible nodes
           if (keyword && keywordStart !== undefined && keywordEnd !== undefined) {
             if (!shouldExcludeNode(keyword, settings)) {
               eligibleNodes.push({
@@ -427,48 +357,24 @@ export function collectAllEligibleNodes(
       }
     },
     });
-    
-    console.log('[DEBUG] collectAllEligibleNodes - traverse completed, found:', eligibleNodes.length);
-  } catch (traverseError) {
-    console.error('[DEBUG] collectAllEligibleNodes - traverse failed');
-    console.error('[DEBUG] Traverse error:', JSON.stringify({
-      message: traverseError instanceof Error ? traverseError.message : String(traverseError),
-      stack: traverseError instanceof Error ? traverseError.stack : undefined
-    }, null, 2));
-    throw traverseError;
-  }
 
   return eligibleNodes;
 }
 
-/**
- * Randomly select a subset of eligible nodes and assign sequential IDs
- * - Shuffles eligible nodes randomly
- * - Selects nodes based on settings (count mode)
- * - Assigns sequential IDs starting from 1
- * - Sorts by start position for segment building
- */
 export function selectRandomGapNodes(
   eligibleNodes: EligibleNode[],
-  settings: GapSettings
+  settings: GapSettings,
+  random: () => number = Math.random
 ): GapNode[] {
   if (eligibleNodes.length === 0) {
     return [];
   }
 
-  // Shuffle for randomization
-  const shuffled = shuffleArray(eligibleNodes);
-  
-  // Calculate target count based on settings
-  const targetCount = calculateTargetGapCount(eligibleNodes.length, settings);
-  
-  // Select the first N nodes from shuffled array (they're already randomized)
+  const shuffled = shuffleArray(eligibleNodes, random);
+  const targetCount = calculateTargetGapCount(eligibleNodes.length, settings, random);
   const selected = shuffled.slice(0, targetCount);
-  
-  // Sort by start position ascending (required for segment building)
   selected.sort((a, b) => a.start - b.start);
   
-  // Assign sequential IDs starting from 1
   return selected.map((node, index) => ({
     ...node,
     id: index + 1,
