@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 import Terminal from 'vite-plugin-terminal'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/codegapper-playground/' : '/',
   plugins: [
     react(),
     // Use `import { terminal } from 'virtual:terminal'` and terminal.log() for logs in the dev server terminal (stripped in production).
@@ -13,4 +14,4 @@ export default defineConfig({
     port: 3000,
     host: true, // Allow external connections for stagewise
   },
-})
+}))
