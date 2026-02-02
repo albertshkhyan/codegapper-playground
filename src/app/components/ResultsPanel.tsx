@@ -1,13 +1,48 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
+import { CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useGapStore } from '../../store/useGapStore';
+export interface ResultsPanelHandle {
+  checkAnswers: () => void;
+  expandAnswers: () => void;
+}
 
-export const ResultsPanel: React.FC = () => {
+export const ResultsPanel = forwardRef<ResultsPanelHandle>((_props, ref) => {
   const validateAnswers = useGapStore((state) => state.validateAnswers);
   const answerKey = useGapStore((state) => state.answerKey);
+  const segments = useGapStore((state) => state.segments);
+  const hasChecked = useGapStore((state) => state.hasChecked);
+  const setHasChecked = useGapStore((state) => state.setHasChecked);
   const [showAnswers, setShowAnswers] = useState(false);
+  const answersSectionRef = useRef<HTMLDivElement>(null);
   
-  const validation = validateAnswers();
+  // Reset show answers when new gaps are generated
+  useEffect(() => {
+    setShowAnswers(false);
+  }, [segments.length]);
+  
+  // Only validate if user has explicitly checked answers
+  const validation = hasChecked ? validateAnswers() : {
+    correctCount: 0,
+    totalCount: Object.keys(answerKey).length,
+    correctGaps: [] as number[],
+    incorrectGaps: [] as number[],
+    hint: 'Click "Check Answers" to validate your responses.',
+  };
   const { correctCount, totalCount, correctGaps, incorrectGaps, hint } = validation;
+
+  const handleCheckAnswers = () => {
+    setHasChecked(true);
+  };
+
+  const handleExpandAnswers = () => {
+    setShowAnswers(true);
+  };
+
+  // Expose checkAnswers function via ref
+  useImperativeHandle(ref, () => ({
+    checkAnswers: handleCheckAnswers,
+    expandAnswers: handleExpandAnswers,
+  }));
 
   const handleToggleAnswers = () => {
     setShowAnswers((prev) => !prev);
@@ -52,7 +87,7 @@ export const ResultsPanel: React.FC = () => {
             <div className="text-xs text-slate-400 mb-2">{hint}</div>
           )}
           {showAnswers && answerEntries.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-700">
+            <div ref={answersSectionRef} className="mt-3 pt-3 border-t border-slate-700">
               <div className="text-xs text-slate-400 mb-2">Answers:</div>
               <div className="space-y-1">
                 {answerEntries.map(({ id, answer }) => (
@@ -68,21 +103,39 @@ export const ResultsPanel: React.FC = () => {
             </div>
           )}
         </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Check Answers Button */}
+          <button
+            onClick={handleCheckAnswers}
+            className="px-3 md:px-4 py-2 md:py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 border border-blue-700 rounded text-slate-200 text-xs md:text-sm transition-colors flex items-center gap-1.5 md:gap-2 h-fit touch-manipulation min-h-[44px]"
+            title="Validate your answers"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Check</span>
+          </button>
+          
+          {/* Show/Hide Answers Button */}
         <button
           onClick={handleToggleAnswers}
-          className="px-4 py-2 bg-slate-800 border border-slate-700 rounded text-slate-200 text-sm hover:bg-slate-700 transition-colors flex items-center gap-2 h-fit"
-        >
-          <span>{showAnswers ? 'Hide Answers' : 'Show Answers'}</span>
-          <svg 
-            className={`w-4 h-4 transition-transform ${showAnswers ? 'rotate-180' : ''}`}
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
+          className="px-3 md:px-4 py-2 md:py-2 bg-slate-800 border border-slate-700 rounded text-slate-200 text-xs md:text-sm hover:bg-slate-700 active:bg-slate-600 transition-colors flex items-center gap-1.5 md:gap-2 h-fit touch-manipulation min-h-[44px]"
+            title={showAnswers ? 'Hide answer key' : 'Show answer key'}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+            {showAnswers ? (
+              <>
+                <EyeOff className="w-4 h-4" />
+                <span>Hide Answers</span>
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4" />
+                <span>Show Answers</span>
+              </>
+            )}
         </button>
+        </div>
       </div>
     </div>
   );
-};
+});
+
+ResultsPanel.displayName = 'ResultsPanel';
