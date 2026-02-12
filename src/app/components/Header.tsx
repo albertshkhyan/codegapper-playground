@@ -157,11 +157,11 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
 
   return (
     <>
-      <header className="h-16 md:h-18 border-b border-slate-700 flex items-center justify-between px-3 md:px-6 bg-slate-900">
+      <header className="sticky top-0 z-20 h-16 md:h-18 border-b border-slate-700 flex items-center justify-between px-3 md:px-6 bg-slate-900">
         <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
           <a 
             href="/" 
-            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+            className="flex items-center min-h-[44px] min-w-[44px] cursor-pointer hover:opacity-80 transition-opacity"
             onClick={(e) => {
               e.preventDefault();
               reset();
@@ -189,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
         <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
           <button
             onClick={handleNewSession}
-            className="px-2 md:px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-slate-200 rounded border border-blue-700 transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+            className="min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-slate-200 rounded border border-blue-700 transition-colors flex items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             title="Create new session"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -197,7 +197,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
           </button>
           <button
             onClick={handleSaveSession}
-            className="px-2 md:px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 active:bg-green-800 text-slate-200 rounded border border-green-700 transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+            className="min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 active:bg-green-800 text-slate-200 rounded border border-green-700 transition-colors flex items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             title="Save current session"
           >
             <Save className="w-3.5 h-3.5" />
@@ -205,20 +205,20 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
           </button>
           <button
             onClick={() => setIsSessionListOpen(true)}
-            className="px-2 md:px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 border border-slate-600 rounded transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+            className="min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 border border-slate-600 rounded transition-colors flex items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             title="View all sessions"
           >
             <FolderOpen className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sessions</span>
           </button>
           {canInstall && (
-            <button
-              type="button"
-              onClick={install}
-              className="px-2 md:px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 border border-slate-600 rounded transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
-              title="Install app"
-              aria-label="Install app"
-            >
+<button
+                  type="button"
+                  onClick={install}
+                  className="min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 border border-slate-600 rounded transition-colors flex items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
+                  title="Install app"
+                  aria-label="Install app"
+                >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Install</span>
             </button>
@@ -226,7 +226,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
           <div className="relative group">
             <button
               onClick={() => window.open('https://buymeacoffee.com/albertahkhyan', '_blank', 'noopener,noreferrer')}
-              className="px-2 md:px-3 py-1.5 text-xs bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-slate-200 rounded border border-pink-700 transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+              className="min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-slate-200 rounded border border-pink-700 transition-colors flex items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             >
               <Heart className="w-3.5 h-3.5 fill-current" />
               <span className="hidden sm:inline">Donate</span>
@@ -240,7 +240,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
           <div className="relative group">
       <button
               onClick={() => window.open('https://github.com/albertshkhyan/codegapper-playground', '_blank', 'noopener,noreferrer')}
-        className="p-2 text-slate-400 hover:text-slate-100 transition-colors"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-100 transition-colors"
               aria-label="GitHub Repository"
       >
         <svg

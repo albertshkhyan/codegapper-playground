@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { HelpCircle } from 'lucide-react';
 import { Header } from './Header';
 import { GappedCodePanel } from './GappedCodePanel';
 
@@ -6,6 +7,7 @@ const CodeEditorPanel = lazy(() => import('./CodeEditorPanel').then((m) => ({ de
 import { ResultsPanel } from './ResultsPanel';
 import { ToastContainer } from './ToastContainer';
 import { KeyboardShortcutsFooter } from './KeyboardShortcutsFooter';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 interface ToastData {
   id: string;
   message: string;
@@ -16,6 +18,7 @@ export const AppLayout: React.FC = () => {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   
   // Touch/swipe handling for mobile
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -214,6 +217,16 @@ export const AppLayout: React.FC = () => {
         </div>
       </div>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <button
+        type="button"
+        onClick={() => setIsShortcutsModalOpen(true)}
+        className="fixed bottom-4 right-4 z-30 md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 shadow-lg touch-manipulation"
+        title="Shortcuts &amp; About"
+        aria-label="Shortcuts and about"
+      >
+        <HelpCircle className="w-6 h-6" />
+      </button>
+      <KeyboardShortcutsModal isOpen={isShortcutsModalOpen} onClose={() => setIsShortcutsModalOpen(false)} />
     </div>
   );
 };

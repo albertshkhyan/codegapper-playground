@@ -764,7 +764,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
         <div 
           ref={sessionListRef}
-          className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+          className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[100dvh] md:max-h-[80vh] overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-6 py-4 border-b border-slate-700 space-y-3">
@@ -782,7 +782,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                 <button
                   type="button"
                   onClick={() => importInputRef.current?.click()}
-                  className="px-2 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors flex items-center gap-1.5"
+                  className="min-h-[44px] min-w-[44px] px-2 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors flex items-center justify-center gap-1.5"
                   title="Import sessions from JSON file"
                 >
                   <Upload className="w-3.5 h-3.5" />
@@ -791,15 +791,16 @@ export const SessionList: React.FC<SessionListProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowImportFormat(true)}
-                  className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                   title="Expected JSON structure"
                   aria-label="Show expected JSON structure"
                 >
                   <HelpCircle className="w-4 h-4" />
                 </button>
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="text-slate-400 hover:text-slate-200 transition-colors p-1"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors p-2"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -905,7 +906,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                               e.stopPropagation();
                               handleEditGroup(groupName);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors opacity-0 group-hover:opacity-100"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors opacity-0 group-hover:opacity-100"
                             title="Rename group"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -962,7 +963,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                       e.stopPropagation();
                                       toggleSessionExpanded(session.id);
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                     title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
                                   >
                                     {isExpandedSession ? (
@@ -976,7 +977,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                       e.stopPropagation();
                                       handleLoad(session);
                                     }}
-                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors"
+                                    className="min-h-[44px] min-w-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors flex items-center justify-center"
                                     title="Load session"
                                   >
                                     Load
@@ -986,7 +987,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                       e.stopPropagation();
                                       handleRename(session.id);
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                     title="Rename session"
                                   >
                                     <Edit2 className="w-4 h-4" />
@@ -996,7 +997,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                       e.stopPropagation();
                                       handleDelete(session.id);
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
                                     title="Delete session"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -1155,7 +1156,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   e.stopPropagation();
                                   toggleSessionExpanded(session.id);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                 title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
                               >
                                 {isExpandedSession ? (
@@ -1169,7 +1170,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   e.stopPropagation();
                                   handleLoad(session);
                                 }}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors"
+                                className="min-h-[44px] min-w-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors flex items-center justify-center"
                                 title="Load session"
                               >
                                 Load
@@ -1179,7 +1180,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   e.stopPropagation();
                                   handleRename(session.id);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                 title="Rename session"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -1189,7 +1190,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   e.stopPropagation();
                                   handleDelete(session.id);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
                                 title="Delete session"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1253,7 +1254,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       {importPreview && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={handleCancelImport}>
           <div
-            className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
+            className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-lg max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
@@ -1261,7 +1262,7 @@ export const SessionList: React.FC<SessionListProps> = ({
               <button
                 type="button"
                 onClick={handleCancelImport}
-                className="text-slate-400 hover:text-slate-200 p-1"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 p-2"
                 aria-label="Cancel import"
               >
                 <X className="w-5 h-5" />
@@ -1349,7 +1350,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       {showImportFormat && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowImportFormat(false)}>
           <div
-            className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+            className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[100dvh] md:max-h-[90vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
@@ -1357,7 +1358,7 @@ export const SessionList: React.FC<SessionListProps> = ({
               <button
                 type="button"
                 onClick={() => setShowImportFormat(false)}
-                className="text-slate-400 hover:text-slate-200 p-1"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 p-2"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
