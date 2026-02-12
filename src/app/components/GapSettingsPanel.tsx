@@ -174,12 +174,8 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50">
       <div
         ref={gapSettingsRef}
-        className="bg-slate-800 border border-slate-700 border-b-0 md:border-b rounded-t-xl md:rounded-lg shadow-xl w-full max-w-4xl max-h-[85dvh] md:max-h-[90vh] overflow-auto transition-transform duration-300 ease-out motion-reduce:duration-0"
+        className="bg-slate-800 border border-slate-700 border-b-0 md:border-b rounded-t-xl md:rounded-lg shadow-xl w-full max-w-4xl h-[100dvh] md:h-auto md:max-h-[90vh] overflow-auto transition-transform duration-300 ease-out motion-reduce:duration-0"
       >
-        {/* Bottom sheet drag handle (mobile) */}
-        <div className="md:hidden flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full bg-slate-600" aria-hidden />
-        </div>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <h2 className="text-lg font-semibold text-slate-200">Gap Generation Settings</h2>
@@ -194,9 +190,9 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
 
         {/* Content */}
         <div className="p-6">
-          <div className="grid grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column: Gap Count, Node Types — second on mobile to avoid overlap */}
+            <div className="space-y-6 order-2 md:order-1 min-w-0">
               {/* Gap Count */}
               <div>
                 <h3 className="text-sm font-medium text-slate-200 mb-3">Gap Count</h3>
@@ -359,8 +355,8 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
               </div>
             </div>
 
-            {/* Right Column */}
-            <div className="space-y-6">
+            {/* Right Column: Difficulty, Exclusions — first on mobile */}
+            <div className="space-y-6 order-1 md:order-2 min-w-0">
               {/* Difficulty */}
               <div>
                 <h3 className="text-sm font-medium text-slate-200 mb-3">Difficulty</h3>
