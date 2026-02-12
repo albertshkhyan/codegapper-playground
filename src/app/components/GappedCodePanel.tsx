@@ -5,6 +5,10 @@ import '../../shared/lib/prism-theme.css';
 import type { Segment } from '../../shared/lib/gapEngine/types';
 import { GapSettingsPanel } from './GapSettingsPanel';
 import { highlightCode, loadPrismLanguage } from '../../shared/utils/prismLoader';
+
+const MIN_GAP_CH = 6;
+const MAX_GAP_CH = 40;
+
 export interface GappedCodePanelHandle {
   generateGaps: () => void;
 }
@@ -215,7 +219,12 @@ export const GappedCodePanel = forwardRef<GappedCodePanelHandle>((_props, ref) =
                         }
                       }
                       
-                      // Use segment answer in key to force re-render when gap position/answer changes
+                      // Width from expected answer length, at least placeholder size (ch units in font-mono)
+                      const placeholderText = `gap ${gapId}`;
+                      const gapCh = Math.min(
+                        MAX_GAP_CH,
+                        Math.max(MIN_GAP_CH, segment.answer.length, placeholderText.length)
+                      );
                       const gapKey = `line-${lineIndex}-gap-${gapId}-${segment.answer}`;
                       return (
                         <input
@@ -232,8 +241,9 @@ export const GappedCodePanel = forwardRef<GappedCodePanelHandle>((_props, ref) =
                               el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                             }, delayMs);
                           }}
-                          placeholder={`gap ${gapId}`}
-                          className={`inline-block min-w-[100px] md:min-w-[100px] min-h-[44px] md:min-h-[28px] px-2 md:px-2 py-2 md:py-0.5 mx-0.5 bg-slate-900 rounded text-slate-200 font-mono text-sm md:text-sm focus:outline-none placeholder:text-slate-500 align-baseline touch-manipulation scroll-mb-[20vh] ${borderClasses}`}
+                          placeholder={placeholderText}
+                          style={{ width: `max(65px, ${gapCh}ch)`, minWidth: `max(65px, ${gapCh}ch)` }}
+                          className={`inline-block min-h-[44px] md:min-h-[28px] px-2 md:px-2 py-2 md:py-0.5 mx-0.5 bg-slate-900 rounded text-slate-200 font-mono text-sm md:text-sm focus:outline-none placeholder:text-slate-500 placeholder:text-xs align-baseline touch-manipulation scroll-mb-[20vh] ${borderClasses}`}
                         />
                       );
                     }

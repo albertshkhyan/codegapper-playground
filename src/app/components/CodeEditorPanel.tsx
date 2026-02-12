@@ -1,6 +1,6 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
-import { ChevronLeft, ChevronRight, Code, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useGapStore } from '../../store/useGapStore';
 import { SUPPORTED_LANGUAGES } from '../../shared/constants/languages';
 
@@ -32,7 +32,7 @@ export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
         className={`absolute top-1/2 -translate-y-1/2 z-30 w-8 md:w-6 h-12 md:h-12 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-600 flex items-center justify-center transition-all duration-300 ease-in-out motion-reduce:duration-0 group shadow-lg touch-manipulation min-h-[44px] ${
           isOpen 
             ? 'right-0 translate-x-1/2 rounded-r-md' 
-            : 'right-0 translate-x-0 rounded-md'
+            : 'left-1/2 -translate-x-1/2 rounded-md'
         }`}
         aria-label={isOpen ? 'Collapse left panel' : 'Expand left panel'}
         aria-expanded={isOpen}
@@ -44,14 +44,6 @@ export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
           <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-100 transition-colors" />
         )}
           </button>
-
-      {/* Collapsed State - Icon Rail with label */}
-      {!isOpen && (
-        <div className="flex flex-col items-center justify-center gap-2 h-full py-4 pr-8 transition-opacity duration-300 ease-in-out motion-reduce:duration-0">
-          <Code className="w-5 h-5 text-slate-400" />
-          <span className="text-xs text-slate-500 font-medium">Code</span>
-        </div>
-      )}
 
       {/* Expanded State - Full Content */}
       {isOpen && (
