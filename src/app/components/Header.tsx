@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { Plus, Save, FolderOpen, Heart } from 'lucide-react';
+import { Plus, Save, FolderOpen, Download, Heart } from 'lucide-react';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { useGapStore } from '../../store/useGapStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { SessionModal } from './SessionModal';
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
   const setGapSettings = useGapStore((state) => state.setGapSettings);
   const reset = useGapStore((state) => state.reset);
   
+  const { canInstall, install } = usePWAInstall();
   const currentSessionId = useSessionStore((state) => state.currentSessionId);
   const sessions = useSessionStore((state) => state.sessions);
   const createSession = useSessionStore((state) => state.createSession);
@@ -209,6 +211,18 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
             <FolderOpen className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sessions</span>
           </button>
+          {canInstall && (
+            <button
+              type="button"
+              onClick={install}
+              className="px-2 md:px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 border border-slate-600 rounded transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+              title="Install app"
+              aria-label="Install app"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Install</span>
+            </button>
+          )}
           <div className="relative group">
             <button
               onClick={() => window.open('https://buymeacoffee.com/albertahkhyan', '_blank', 'noopener,noreferrer')}
