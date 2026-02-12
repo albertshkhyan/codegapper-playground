@@ -226,10 +226,14 @@ export const GappedCodePanel = forwardRef<GappedCodePanelHandle>((_props, ref) =
                           value={userAnswer}
                           onChange={(e) => setUserAnswer(gapId, e.target.value)}
                           onFocus={(e) => {
-                            (e.target as HTMLInputElement).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            const el = e.target as HTMLInputElement;
+                            const delayMs = 350;
+                            window.setTimeout(() => {
+                              el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }, delayMs);
                           }}
                           placeholder={`gap ${gapId}`}
-                          className={`inline-block min-w-[100px] md:min-w-[100px] min-h-[44px] md:min-h-[28px] px-2 md:px-2 py-2 md:py-0.5 mx-0.5 bg-slate-900 rounded text-slate-200 font-mono text-sm md:text-sm focus:outline-none placeholder:text-slate-500 align-baseline touch-manipulation ${borderClasses}`}
+                          className={`inline-block min-w-[100px] md:min-w-[100px] min-h-[44px] md:min-h-[28px] px-2 md:px-2 py-2 md:py-0.5 mx-0.5 bg-slate-900 rounded text-slate-200 font-mono text-sm md:text-sm focus:outline-none placeholder:text-slate-500 align-baseline touch-manipulation scroll-mb-[20vh] ${borderClasses}`}
                         />
                       );
                     }

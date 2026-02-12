@@ -22,8 +22,36 @@ export const AppLayout: React.FC = () => {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [hideShortcutsFab, setHideShortcutsFab] = useState(false);
   const { canInstall } = usePWAInstall();
-  
+
+  // Hide "?" FAB when an input is focused or visual viewport is small (keyboard open)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const VIEWPORT_SHRINK_THRESHOLD = 0.75;
+
+    const updateFabVisibility = () => {
+      const active = document.activeElement;
+      const inputFocused =
+        active &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable);
+      const viewportSmall = vv ? vv.height < window.innerHeight * VIEWPORT_SHRINK_THRESHOLD : false;
+      setHideShortcutsFab(Boolean(inputFocused || viewportSmall));
+    };
+
+    updateFabVisibility();
+    vv?.addEventListener('resize', updateFabVisibility);
+    vv?.addEventListener('scroll', updateFabVisibility);
+    window.addEventListener('focusin', updateFabVisibility);
+    window.addEventListener('focusout', updateFabVisibility);
+    return () => {
+      vv?.removeEventListener('resize', updateFabVisibility);
+      vv?.removeEventListener('scroll', updateFabVisibility);
+      window.removeEventListener('focusin', updateFabVisibility);
+      window.removeEventListener('focusout', updateFabVisibility);
+    };
+  }, []);
+
   // Touch/swipe handling for mobile
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchEndRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -226,9 +254,10 @@ export const AppLayout: React.FC = () => {
       <button
         type="button"
         onClick={() => setIsShortcutsModalOpen(true)}
-        className="fixed bottom-4 right-4 z-30 md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 shadow-lg touch-manipulation"
+        className={`fixed bottom-4 right-4 z-30 md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 shadow-lg touch-manipulation transition-opacity duration-200 ${hideShortcutsFab ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         title="Shortcuts &amp; About"
         aria-label="Shortcuts and about"
+        aria-hidden={hideShortcutsFab}
       >
         <HelpCircle className="w-6 h-6" />
       </button>
