@@ -62,10 +62,16 @@ Interactive web app for learning JavaScript via fill-in-the-blanks. Uses AST par
 
 ---
 
-## Future (Out of Scope for Current Roadmap)
+## Future Ideas (Backlog)
 
-- i18n, advanced analytics, learning-path recommendations
-- Details and tasks live in GitHub issues; this file stays high-level.
+Features to consider in future iterations:
+
+- **Hint support** — In-exercise hints for gaps (e.g. first letter, type, or contextual clue)
+- **Import/export** — Export/import sessions or exercises (e.g. JSON, share links, PDF/CSV)
+- **Advanced filters** — Filter/sort by order, ascending/descending, gap type, difficulty, etc.
+- **AI code explanation mode** — Optional AI-generated explanations for code or gaps (e.g. why a gap is there, what the snippet does)
+
+Other ideas: i18n, advanced analytics, learning-path recommendations. Details and tasks can live in GitHub issues; this file stays high-level.
 
 ---
 

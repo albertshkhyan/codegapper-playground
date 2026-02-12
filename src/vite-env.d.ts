@@ -1,5 +1,18 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 /// <reference types="vite-plugin-terminal/client" />
+
+/** PWA install prompt event (Chrome/Edge). Not supported in Safari. */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+declare global {
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
 
 declare module 'prismjs/components/prism-javascript';
 declare module 'prismjs/components/prism-typescript';
