@@ -177,35 +177,36 @@ function isSessionImportItem(raw: unknown): raw is SessionImportItem {
  * Validates a single import item and returns a list of error messages.
  * Empty array means valid.
  */
-export function validateSessionImportItem(item: unknown, _index: number): string[] {
+export function validateSessionImportItem(item: unknown, index: number): string[] {
   const errors: string[] = [];
+  const itemLabel = `Item ${index + 1}: `;
   if (!item || typeof item !== 'object') {
-    return ['Not an object'];
+    return [`${itemLabel}Not an object`];
   }
   const o = item as Record<string, unknown>;
 
   if (typeof o.name !== 'string') {
-    errors.push('Missing or invalid "name" (must be a string)');
+    errors.push(`${itemLabel}Missing or invalid "name" (must be a string)`);
   }
   if (typeof o.inputCode !== 'string') {
-    errors.push('Missing or invalid "inputCode" (must be a string)');
+    errors.push(`${itemLabel}Missing or invalid "inputCode" (must be a string)`);
   }
   if (!Array.isArray(o.segments)) {
-    errors.push('Missing or invalid "segments" (must be an array)');
+    errors.push(`${itemLabel}Missing or invalid "segments" (must be an array)`);
   } else {
     o.segments.forEach((seg: unknown, i: number) => {
       if (!isValidSegment(seg)) {
-        errors.push(`segments[${i}]: must be { kind: "text", value: string } or { kind: "gap", id: number, answer: string }`);
+        errors.push(`${itemLabel}segments[${i}]: must be { kind: "text", value: string } or { kind: "gap", id: number, answer: string }`);
       }
     });
   }
   if (typeof o.answerKey !== 'object' || o.answerKey === null) {
-    errors.push('Missing or invalid "answerKey" (must be an object with gap id keys and string values)');
+    errors.push(`${itemLabel}Missing or invalid "answerKey" (must be an object with gap id keys and string values)`);
   } else {
     const ak = o.answerKey as Record<string, unknown>;
     for (const [k, v] of Object.entries(ak)) {
       if (!Number.isInteger(Number(k)) || typeof v !== 'string') {
-        errors.push('answerKey: each key must be a gap id (number) and each value must be a string');
+        errors.push(`${itemLabel}answerKey: each key must be a gap id (number) and each value must be a string`);
         break;
       }
     }
