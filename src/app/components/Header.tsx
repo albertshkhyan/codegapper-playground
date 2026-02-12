@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { Plus, Save, FolderOpen, Download, Heart } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { Plus, Save, FolderOpen, Download, Heart, MoreVertical } from 'lucide-react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { useGapStore } from '../../store/useGapStore';
 import { useSessionStore } from '../../store/useSessionStore';
@@ -18,6 +18,19 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, onCloseModalsRef }) => {
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [isSessionListOpen, setIsSessionListOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMoreMenuOpen]);
   
   const inputCode = useGapStore((state) => state.inputCode);
   const segments = useGapStore((state) => state.segments);
@@ -157,11 +170,11 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
 
   return (
     <>
-      <header className="h-16 md:h-18 border-b border-slate-700 flex items-center justify-between px-3 md:px-6 bg-slate-900">
+      <header className="sticky top-0 z-20 h-16 md:h-18 border-b border-slate-700 flex items-center justify-between px-3 md:px-6 bg-slate-900">
         <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
           <a 
             href="/" 
-            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+            className="flex items-center min-h-[44px] min-w-[44px] cursor-pointer hover:opacity-80 transition-opacity"
             onClick={(e) => {
               e.preventDefault();
               reset();
@@ -189,7 +202,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
         <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
           <button
             onClick={handleNewSession}
-            className="px-2 md:px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-slate-200 rounded border border-blue-700 transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+            className="min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-slate-200 rounded border border-blue-700 transition-colors flex items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             title="Create new session"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -197,7 +210,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
           </button>
           <button
             onClick={handleSaveSession}
-            className="px-2 md:px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 active:bg-green-800 text-slate-200 rounded border border-green-700 transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+            className="hidden sm:flex min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 active:bg-green-800 text-slate-200 rounded border border-green-700 transition-colors items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             title="Save current session"
           >
             <Save className="w-3.5 h-3.5" />
@@ -205,7 +218,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
           </button>
           <button
             onClick={() => setIsSessionListOpen(true)}
-            className="px-2 md:px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 border border-slate-600 rounded transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+            className="hidden sm:flex min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 border border-slate-600 rounded transition-colors items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             title="View all sessions"
           >
             <FolderOpen className="w-3.5 h-3.5" />
@@ -215,7 +228,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
             <button
               type="button"
               onClick={install}
-              className="px-2 md:px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 border border-slate-600 rounded transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+              className="hidden sm:flex min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 border border-slate-600 rounded transition-colors items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
               title="Install app"
               aria-label="Install app"
             >
@@ -223,24 +236,70 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
               <span className="hidden sm:inline">Install</span>
             </button>
           )}
-          <div className="relative group">
+          <div className="hidden sm:block relative group">
             <button
               onClick={() => window.open('https://buymeacoffee.com/albertahkhyan', '_blank', 'noopener,noreferrer')}
-              className="px-2 md:px-3 py-1.5 text-xs bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-slate-200 rounded border border-pink-700 transition-colors flex items-center gap-1 md:gap-1.5 touch-manipulation"
+              className="min-h-[44px] min-w-[44px] px-2 md:px-3 py-1.5 text-xs bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-slate-200 rounded border border-pink-700 transition-colors flex items-center justify-center gap-1 md:gap-1.5 touch-manipulation"
             >
               <Heart className="w-3.5 h-3.5 fill-current" />
               <span className="hidden sm:inline">Donate</span>
             </button>
-            {/* Tooltip */}
             <div className="absolute right-0 top-full mt-2 px-3 py-2 bg-slate-800 text-slate-200 text-xs rounded-lg shadow-lg border border-slate-700 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-50">
               ☕ Support this project and help it grow
               <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-800 border-l border-t border-slate-700 transform rotate-45"></div>
-        </div>
-      </div>
+            </div>
+          </div>
+          {/* More menu (mobile) */}
+          <div className="relative sm:hidden" ref={moreMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsMoreMenuOpen((v) => !v)}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-300 hover:text-slate-100 hover:bg-slate-700 rounded border border-slate-600 touch-manipulation"
+              title="More actions"
+              aria-label="More actions"
+              aria-expanded={isMoreMenuOpen}
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+            {isMoreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[160px]">
+                <button
+                  type="button"
+                  onClick={() => { handleSaveSession(); setIsMoreMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 min-h-[44px]"
+                >
+                  <Save className="w-4 h-4" /> Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsSessionListOpen(true); setIsMoreMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 min-h-[44px]"
+                >
+                  <FolderOpen className="w-4 h-4" /> Sessions
+                </button>
+                {canInstall && (
+                  <button
+                    type="button"
+                    onClick={() => { install(); setIsMoreMenuOpen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 min-h-[44px]"
+                  >
+                    <Download className="w-4 h-4" /> Install
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { window.open('https://buymeacoffee.com/albertahkhyan', '_blank', 'noopener,noreferrer'); setIsMoreMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 min-h-[44px]"
+                >
+                  <Heart className="w-4 h-4 fill-current" /> Donate
+                </button>
+              </div>
+            )}
+          </div>
           <div className="relative group">
       <button
               onClick={() => window.open('https://github.com/albertshkhyan/codegapper-playground', '_blank', 'noopener,noreferrer')}
-        className="p-2 text-slate-400 hover:text-slate-100 transition-colors"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-100 transition-colors"
               aria-label="GitHub Repository"
       >
         <svg
@@ -273,6 +332,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
             isOpen={isSessionListOpen}
             onClose={() => setIsSessionListOpen(false)}
             onLoadSession={handleLoadSession}
+            onShowToast={onShowToast}
           />
         </Suspense>
       )}

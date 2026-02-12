@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { useGapStore } from '../../store/useGapStore';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { GapSettings } from '../../shared/lib/gapEngine/settings';
 import { defaultGapSettings, applyDifficultyPreset } from '../../shared/lib/gapEngine/settings';
 interface GapSettingsPanelProps {
@@ -15,6 +16,7 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
   onApply,
 }) => {
   const gapSettingsRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, gapSettingsRef);
   const gapSettings = useGapStore((state) => state.gapSettings);
   const setGapSettings = useGapStore((state) => state.setGapSettings);
   const resetGapSettings = useGapStore((state) => state.resetGapSettings);
@@ -169,14 +171,17 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div ref={gapSettingsRef} className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-auto">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50">
+      <div
+        ref={gapSettingsRef}
+        className="bg-slate-800 border border-slate-700 border-b-0 md:border-b rounded-t-xl md:rounded-lg shadow-xl w-full max-w-4xl h-[100dvh] md:h-auto md:max-h-[90vh] overflow-auto transition-transform duration-300 ease-out motion-reduce:duration-0"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <h2 className="text-lg font-semibold text-slate-200">Gap Generation Settings</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors p-2"
             aria-label="Close settings"
           >
             <X className="w-5 h-5" />
@@ -185,9 +190,9 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
 
         {/* Content */}
         <div className="p-6">
-          <div className="grid grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column: Gap Count, Node Types — second on mobile to avoid overlap */}
+            <div className="space-y-6 order-2 md:order-1 min-w-0">
               {/* Gap Count */}
               <div>
                 <h3 className="text-sm font-medium text-slate-200 mb-3">Gap Count</h3>
@@ -350,8 +355,8 @@ export const GapSettingsPanel: React.FC<GapSettingsPanelProps> = ({
               </div>
             </div>
 
-            {/* Right Column */}
-            <div className="space-y-6">
+            {/* Right Column: Difficulty, Exclusions — first on mobile */}
+            <div className="space-y-6 order-1 md:order-2 min-w-0">
               {/* Difficulty */}
               <div>
                 <h3 className="text-sm font-medium text-slate-200 mb-3">Difficulty</h3>

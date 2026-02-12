@@ -1,9 +1,17 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Edit2, Trash2, X, Folder, ChevronDown, ChevronRight, GripVertical, FileText, Search, Pencil, Copy, Check } from 'lucide-react';
+import { Edit2, Trash2, X, Folder, ChevronDown, ChevronRight, GripVertical, FileText, Search, Pencil, Copy, Check, Upload, HelpCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useSessionStore } from '../../store/useSessionStore';
 import { sessionStorage } from '../../utils/sessionStorage';
 import type { SessionData } from '../../utils/sessionStorage';
+import {
+    parseSessionImportWithValidation,
+    type ImportValidationResult,
+    IMPORT_JSON_EXAMPLE,
+    IMPORT_JSON_MULTI_EXAMPLE,
+  } from '../../utils/sessionImport';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { SessionModal } from './SessionModal';
 import { GroupEditModal } from './GroupEditModal';
 import { highlightCode } from '../../shared/utils/prismLoader';
@@ -12,18 +20,23 @@ interface SessionListProps {
   isOpen: boolean;
   onClose: () => void;
   onLoadSession: (session: SessionData) => void;
+  onShowToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const SessionList: React.FC<SessionListProps> = ({
   isOpen,
   onClose,
   onLoadSession,
+  onShowToast,
 }) => {
   const sessionListRef = useRef<HTMLDivElement>(null);
+  const importPreviewRef = useRef<HTMLDivElement>(null);
+  const importFormatRef = useRef<HTMLDivElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const sessions = useSessionStore((state) => state.sessions);
-  
   const deleteSession = useSessionStore((state) => state.deleteSession);
   const loadSessions = useSessionStore((state) => state.loadSessions);
+  const setCurrentSessionId = useSessionStore((state) => state.setCurrentSessionId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
@@ -40,6 +53,9 @@ export const SessionList: React.FC<SessionListProps> = ({
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [editingNotesMode, setEditingNotesMode] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [importPreview, setImportPreview] = useState<ImportValidationResult | null>(null);
+  const [showImportFormat, setShowImportFormat] = useState(false);
+  const [copiedImportExample, setCopiedImportExample] = useState<'single' | 'multi' | null>(null);
 
   // Group sessions by groupName
   const groupedSessions = useMemo(() => {
@@ -327,6 +343,63 @@ export const SessionList: React.FC<SessionListProps> = ({
   };
 
   const isEditingNotes = (sessionId: string) => editingNotesMode.has(sessionId);
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      const existingNames = sessions.map((s) => s.name);
+      const result = parseSessionImportWithValidation(text, existingNames);
+      setImportPreview(result);
+    };
+    reader.onerror = () => onShowToast?.('Failed to read file', 'error');
+    reader.readAsText(file, 'utf-8');
+  };
+
+  const handleConfirmImport = () => {
+    if (!importPreview || importPreview.validSessions.length === 0) return;
+    const groupNames = new Set<string>();
+    importPreview.validSessions.forEach(({ session }) => {
+      sessionStorage.save(session);
+      if (session.groupName) groupNames.add(session.groupName);
+    });
+    groupNames.forEach((name) => sessionStorage.saveGroup(name));
+    loadSessions();
+    if (importPreview.validSessions.length > 0) {
+      setCurrentSessionId(importPreview.validSessions[importPreview.validSessions.length - 1].session.id);
+    }
+    onShowToast?.(
+      importPreview.validSessions.length === 1
+        ? `Imported 1 session: "${importPreview.validSessions[0].displayName}"`
+        : `Imported ${importPreview.validSessions.length} sessions`,
+      'success'
+    );
+    setImportPreview(null);
+  };
+
+  const handleCancelImport = () => {
+    setImportPreview(null);
+  };
+
+  const swipeMain = useSwipeToClose(onClose);
+  const swipeImportPreview = useSwipeToClose(handleCancelImport);
+  const swipeFormat = useSwipeToClose(() => setShowImportFormat(false));
+  useFocusTrap(isOpen, sessionListRef);
+  useFocusTrap(!!importPreview, importPreviewRef);
+  useFocusTrap(showImportFormat, importFormatRef);
+
+  const handleCopyImportExample = async (text: string, which: 'single' | 'multi') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedImportExample(which);
+      setTimeout(() => setCopiedImportExample(null), 2000);
+    } catch {
+      onShowToast?.('Failed to copy', 'error');
+    }
+  };
 
   // Code block component with syntax highlighting and copy functionality
   const CodeBlock: React.FC<{ language?: string; children: string }> = ({ language, children }) => {
@@ -699,22 +772,51 @@ export const SessionList: React.FC<SessionListProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose} {...swipeMain}>
         <div 
           ref={sessionListRef}
-          className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+          className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[100dvh] md:max-h-[80vh] overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-6 py-4 border-b border-slate-700 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-slate-200">Your Sessions</h2>
-              <button
-                onClick={onClose}
-                className="text-slate-400 hover:text-slate-200 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={handleImport}
+                  aria-label="Import sessions from JSON"
+                />
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  className="min-h-[44px] min-w-[44px] px-2 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors flex items-center justify-center gap-1.5"
+                  title="Import sessions from JSON file"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Import
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImportFormat(true)}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                  title="Expected JSON structure"
+                  aria-label="Show expected JSON structure"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors p-2"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -815,7 +917,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                               e.stopPropagation();
                               handleEditGroup(groupName);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors opacity-0 group-hover:opacity-100"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors opacity-0 group-hover:opacity-100"
                             title="Rename group"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -851,7 +953,15 @@ export const SessionList: React.FC<SessionListProps> = ({
                                 } ${isExpandedSession ? 'rounded-b-none border-b-0' : ''}`}
                               >
                                 <GripVertical className="w-4 h-4 text-slate-500 mr-2 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSessionExpanded(session.id);
+                                  }}
+                                  className="flex-1 min-w-0 min-h-[44px] text-left py-2 -my-2 px-0 rounded hover:bg-slate-800/50 transition-colors"
+                                  title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                >
                                   <div className="flex items-center gap-2 mb-1">
                                     <h4 className="text-sm font-medium text-slate-200 truncate">
                                       {session.name}
@@ -865,15 +975,16 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   <p className="text-xs text-slate-400">
                                     Last modified {formatTimeAgo(session.updatedAt)}
                                   </p>
-                                </div>
+                                </button>
                                 <div className="flex items-center gap-2 ml-4">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleSessionExpanded(session.id);
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                     title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                    aria-hidden
                                   >
                                     {isExpandedSession ? (
                                       <ChevronDown className="w-4 h-4" />
@@ -886,7 +997,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                       e.stopPropagation();
                                       handleLoad(session);
                                     }}
-                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors"
+                                    className="min-h-[44px] min-w-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors flex items-center justify-center"
                                     title="Load session"
                                   >
                                     Load
@@ -896,7 +1007,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                       e.stopPropagation();
                                       handleRename(session.id);
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                     title="Rename session"
                                   >
                                     <Edit2 className="w-4 h-4" />
@@ -906,7 +1017,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                       e.stopPropagation();
                                       handleDelete(session.id);
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
                                     title="Delete session"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -1044,7 +1155,15 @@ export const SessionList: React.FC<SessionListProps> = ({
                             } ${isExpandedSession ? 'rounded-b-none border-b-0' : ''}`}
                           >
                             <GripVertical className="w-4 h-4 text-slate-500 mr-2 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSessionExpanded(session.id);
+                              }}
+                              className="flex-1 min-w-0 min-h-[44px] text-left py-2 -my-2 px-0 rounded hover:bg-slate-800/50 transition-colors"
+                              title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                            >
                               <div className="flex items-center gap-2 mb-1">
                                 <h4 className="text-sm font-medium text-slate-200 truncate">
                                   {session.name}
@@ -1058,15 +1177,16 @@ export const SessionList: React.FC<SessionListProps> = ({
                               <p className="text-xs text-slate-400">
                                 Last modified {formatTimeAgo(session.updatedAt)}
                               </p>
-                            </div>
+                            </button>
                             <div className="flex items-center gap-2 ml-4">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleSessionExpanded(session.id);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                 title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                aria-hidden
                               >
                                 {isExpandedSession ? (
                                   <ChevronDown className="w-4 h-4" />
@@ -1079,7 +1199,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   e.stopPropagation();
                                   handleLoad(session);
                                 }}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors"
+                                className="min-h-[44px] min-w-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors flex items-center justify-center"
                                 title="Load session"
                               >
                                 Load
@@ -1089,7 +1209,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   e.stopPropagation();
                                   handleRename(session.id);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                 title="Rename session"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -1099,7 +1219,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   e.stopPropagation();
                                   handleDelete(session.id);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
                                 title="Delete session"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1159,6 +1279,193 @@ export const SessionList: React.FC<SessionListProps> = ({
           </div>
         </div>
       </div>
+
+      {importPreview && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={handleCancelImport} {...swipeImportPreview}>
+          <div
+            ref={importPreviewRef}
+            className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-lg max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-200">Import preview</h3>
+              <button
+                type="button"
+                onClick={handleCancelImport}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 p-2"
+                aria-label="Cancel import"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {importPreview.parseError && (
+                <p className="text-sm text-red-400 bg-red-900/20 border border-red-800 rounded px-3 py-2">
+                  {importPreview.parseError}
+                </p>
+              )}
+              {!importPreview.parseError && importPreview.versionWarning && (
+                <p className="text-sm text-amber-400 bg-amber-900/20 border border-amber-700 rounded px-3 py-2">
+                  {importPreview.versionWarning}
+                </p>
+              )}
+              {!importPreview.parseError && importPreview.validSessions.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+                    Valid sessions ({importPreview.validSessions.length})
+                  </h4>
+                  <ul className="space-y-1.5 text-sm text-slate-200">
+                    {importPreview.validSessions.map(({ session, displayName }, i) => (
+                      <li key={i} className="flex items-center gap-2 py-1.5 px-2 bg-slate-900/50 rounded border border-slate-700">
+                        <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                        <span className="font-medium truncate">{displayName}</span>
+                        {session.groupName && (
+                          <span className="text-xs text-slate-500 truncate">· {session.groupName}</span>
+                        )}
+                        <span className="text-xs text-slate-500 ml-auto flex-shrink-0">
+                          {session.segments.filter((s) => s.kind === 'gap').length} gaps
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {importPreview.errors.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-red-400/90 uppercase tracking-wide mb-2">
+                    Validation errors ({importPreview.errors.length} item{importPreview.errors.length !== 1 ? 's' : ''})
+                  </h4>
+                  <ul className="space-y-2 text-sm">
+                    {importPreview.errors.map((err, i) => (
+                      <li key={i} className="py-2 px-3 bg-red-900/15 border border-red-800/50 rounded">
+                        <span className="font-medium text-slate-200">
+                          Item {err.index + 1}{err.name ? ` (“${err.name}”)` : ''}
+                        </span>
+                        <ul className="mt-1 list-disc list-inside text-red-300 text-xs space-y-0.5">
+                          {err.errors.map((msg, j) => (
+                            <li key={j}>{msg}</li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {!importPreview.parseError && importPreview.validSessions.length === 0 && importPreview.errors.length === 0 && (
+                <p className="text-sm text-slate-400">No valid sessions found. Check format and required fields.</p>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-slate-700 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelImport}
+                className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600"
+              >
+                Cancel
+              </button>
+              {!importPreview.parseError && importPreview.validSessions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleConfirmImport}
+                  className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-slate-200 rounded border border-green-700"
+                >
+                  Import {importPreview.validSessions.length} session{importPreview.validSessions.length !== 1 ? 's' : ''}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImportFormat && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowImportFormat(false)} {...swipeFormat}>
+          <div
+            ref={importFormatRef}
+            className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[100dvh] md:max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-200">Expected JSON structure</h3>
+              <button
+                type="button"
+                onClick={() => setShowImportFormat(false)}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 p-2"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="text-sm text-slate-300 space-y-2">
+                <p><strong className="text-slate-200">Required per session:</strong> <code className="bg-slate-900 px-1 rounded">name</code>, <code className="bg-slate-900 px-1 rounded">inputCode</code>, <code className="bg-slate-900 px-1 rounded">segments</code>, <code className="bg-slate-900 px-1 rounded">answerKey</code>.</p>
+                <p><strong className="text-slate-200">Optional:</strong> <code className="bg-slate-900 px-1 rounded">groupName</code>, <code className="bg-slate-900 px-1 rounded">order</code>, <code className="bg-slate-900 px-1 rounded">notes</code>, <code className="bg-slate-900 px-1 rounded">userAnswers</code>, <code className="bg-slate-900 px-1 rounded">gapSettings</code>.</p>
+                <p className="text-slate-400 text-xs">Accepted formats: single session object, array of sessions, or <code className="bg-slate-900 px-1 rounded">{`{ "sessions": [...] }`}</code> with optional <code className="bg-slate-900 px-1 rounded">version</code>.</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Single session example</h4>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyImportExample(IMPORT_JSON_EXAMPLE, 'single')}
+                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                    title="Copy"
+                  >
+                    {copiedImportExample === 'single' ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-xs text-slate-200 overflow-x-auto whitespace-pre font-mono">
+                  {IMPORT_JSON_EXAMPLE}
+                </pre>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Multiple sessions</h4>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyImportExample(IMPORT_JSON_MULTI_EXAMPLE, 'multi')}
+                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                    title="Copy"
+                  >
+                    {copiedImportExample === 'multi' ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="bg-slate-900 border border-slate-700 rounded p-3 text-xs text-slate-200 overflow-x-auto whitespace-pre font-mono">
+                  {IMPORT_JSON_MULTI_EXAMPLE}
+                </pre>
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-slate-700 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowImportFormat(false)}
+                className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SessionModal
         isOpen={showRenameModal}

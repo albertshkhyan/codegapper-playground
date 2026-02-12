@@ -5,6 +5,10 @@ import '../../shared/lib/prism-theme.css';
 import type { Segment } from '../../shared/lib/gapEngine/types';
 import { GapSettingsPanel } from './GapSettingsPanel';
 import { highlightCode, loadPrismLanguage } from '../../shared/utils/prismLoader';
+
+const MIN_GAP_CH = 6;
+const MAX_GAP_CH = 40;
+
 export interface GappedCodePanelHandle {
   generateGaps: () => void;
 }
@@ -136,13 +140,13 @@ export const GappedCodePanel = forwardRef<GappedCodePanelHandle>((_props, ref) =
         <div className="flex items-center gap-2">
           <button
             onClick={handleGenerateGaps}
-            className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-slate-200 rounded border border-blue-700 transition-colors"
+            className="px-3 md:px-3 py-2 md:py-1 text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-slate-200 rounded border border-blue-700 transition-colors touch-manipulation min-h-[44px] md:min-h-0"
           >
             Generate Gaps
           </button>
           <button
             onClick={() => setIsGapSettingsOpen(true)}
-            className="px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded transition-colors flex items-center gap-1.5"
+            className="px-3 md:px-3 py-2 md:py-1 text-xs bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 border border-slate-600 rounded transition-colors flex items-center gap-1.5 touch-manipulation min-h-[44px] md:min-h-0"
             title="Configure gap generation"
           >
             <Settings className="w-3.5 h-3.5" />
@@ -215,16 +219,32 @@ export const GappedCodePanel = forwardRef<GappedCodePanelHandle>((_props, ref) =
                         }
                       }
                       
-                      // Use segment answer in key to force re-render when gap position/answer changes
+                      // Width from expected answer length, at least placeholder size (ch units in font-mono)
+                      const placeholderText = `gap ${gapId}`;
+                      const gapCh = Math.min(
+                        MAX_GAP_CH,
+                        Math.max(MIN_GAP_CH, segment.answer.length, placeholderText.length)
+                      );
                       const gapKey = `line-${lineIndex}-gap-${gapId}-${segment.answer}`;
                       return (
                         <input
                           key={gapKey}
                           type="text"
+                          inputMode="text"
+                          autoComplete="one-time-code"
+                          name={`code-gap-${gapId}`}
                           value={userAnswer}
                           onChange={(e) => setUserAnswer(gapId, e.target.value)}
-                          placeholder={`gap ${gapId}`}
-                          className={`inline-block min-w-[100px] md:min-w-[100px] min-h-[32px] md:min-h-[28px] px-2 md:px-2 py-2 md:py-0.5 mx-0.5 bg-slate-900 rounded text-slate-200 font-mono text-sm md:text-sm focus:outline-none placeholder:text-slate-500 align-baseline touch-manipulation ${borderClasses}`}
+                          onFocus={(e) => {
+                            const el = e.target as HTMLInputElement;
+                            const delayMs = 350;
+                            window.setTimeout(() => {
+                              el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }, delayMs);
+                          }}
+                          placeholder={placeholderText}
+                          style={{ width: `max(65px, ${gapCh}ch)`, minWidth: `max(65px, ${gapCh}ch)` }}
+                          className={`inline-block min-h-[44px] md:min-h-[28px] px-2 md:px-2 py-2 md:py-0.5 mx-0.5 bg-slate-900 rounded text-slate-200 font-mono text-sm md:text-sm focus:outline-none placeholder:text-slate-500 placeholder:text-xs align-baseline touch-manipulation scroll-mb-[20vh] ${borderClasses}`}
                         />
                       );
                     }

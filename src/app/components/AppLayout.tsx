@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { HelpCircle } from 'lucide-react';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { Header } from './Header';
 import { GappedCodePanel } from './GappedCodePanel';
 
@@ -6,6 +8,9 @@ const CodeEditorPanel = lazy(() => import('./CodeEditorPanel').then((m) => ({ de
 import { ResultsPanel } from './ResultsPanel';
 import { ToastContainer } from './ToastContainer';
 import { KeyboardShortcutsFooter } from './KeyboardShortcutsFooter';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { OfflineBanner } from './OfflineBanner';
+import { InstallHintBanner } from './InstallHintBanner';
 interface ToastData {
   id: string;
   message: string;
@@ -16,7 +21,37 @@ export const AppLayout: React.FC = () => {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [isMobile, setIsMobile] = useState(false);
-  
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [hideShortcutsFab, setHideShortcutsFab] = useState(false);
+  const { canInstall } = usePWAInstall();
+
+  // Hide "?" FAB when an input is focused or visual viewport is small (keyboard open)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const VIEWPORT_SHRINK_THRESHOLD = 0.75;
+
+    const updateFabVisibility = () => {
+      const active = document.activeElement;
+      const inputFocused =
+        active &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable);
+      const viewportSmall = vv ? vv.height < window.innerHeight * VIEWPORT_SHRINK_THRESHOLD : false;
+      setHideShortcutsFab(Boolean(inputFocused || viewportSmall));
+    };
+
+    updateFabVisibility();
+    vv?.addEventListener('resize', updateFabVisibility);
+    vv?.addEventListener('scroll', updateFabVisibility);
+    window.addEventListener('focusin', updateFabVisibility);
+    window.addEventListener('focusout', updateFabVisibility);
+    return () => {
+      vv?.removeEventListener('resize', updateFabVisibility);
+      vv?.removeEventListener('scroll', updateFabVisibility);
+      window.removeEventListener('focusin', updateFabVisibility);
+      window.removeEventListener('focusout', updateFabVisibility);
+    };
+  }, []);
+
   // Touch/swipe handling for mobile
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchEndRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -149,14 +184,16 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 relative">
+    <div className="min-h-[100dvh] flex flex-col bg-slate-950 relative">
       <Header 
         onShowToast={showToast} 
         onSaveSessionRef={(ref) => { saveSessionRef.current = ref; }}
         onCloseModalsRef={(ref) => { closeModalsRef.current = ref; }}
       />
+      <OfflineBanner />
+      <InstallHintBanner canInstall={canInstall} />
       <div 
-        className="flex-1 overflow-y-auto p-2 md:p-4"
+        className="flex-1 overflow-y-auto p-2 md:p-4 min-h-0"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -164,12 +201,12 @@ export const AppLayout: React.FC = () => {
           <div 
             className="flex flex-col md:flex-row gap-2 md:gap-4 mb-4" 
             style={{ 
-              height: 'calc(100vh - 180px)',
-              minHeight: 'calc(100vh - 180px)',
+              height: 'calc(100dvh - 180px)',
+              minHeight: 'calc(100dvh - 180px)',
             }}
           >
             <div 
-              className="transition-all duration-300 ease-in-out md:h-full"
+              className="transition-all duration-300 ease-in-out motion-reduce:duration-0 md:h-full"
               style={{
                 width: isMobile 
                   ? (isLeftPanelOpen ? '100%' : '48px')
@@ -191,7 +228,7 @@ export const AppLayout: React.FC = () => {
                 />
               </Suspense>
             </div>
-            <div className="flex-1 transition-all duration-300 ease-in-out md:h-full" style={{ minHeight: '300px' }}>
+            <div className="flex-1 transition-all duration-300 ease-in-out motion-reduce:duration-0 md:h-full" style={{ minHeight: '300px' }}>
               <GappedCodePanel 
                 ref={(instance) => {
                   if (instance) {
@@ -214,6 +251,17 @@ export const AppLayout: React.FC = () => {
         </div>
       </div>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <button
+        type="button"
+        onClick={() => setIsShortcutsModalOpen(true)}
+        className={`fixed bottom-4 right-4 z-30 md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 shadow-lg touch-manipulation transition-opacity duration-200 ${hideShortcutsFab ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        title="Shortcuts &amp; About"
+        aria-label="Shortcuts and about"
+        aria-hidden={hideShortcutsFab}
+      >
+        <HelpCircle className="w-6 h-6" />
+      </button>
+      <KeyboardShortcutsModal isOpen={isShortcutsModalOpen} onClose={() => setIsShortcutsModalOpen(false)} />
     </div>
   );
 };
