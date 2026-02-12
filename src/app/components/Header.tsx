@@ -273,6 +273,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
             isOpen={isSessionListOpen}
             onClose={() => setIsSessionListOpen(false)}
             onLoadSession={handleLoadSession}
+            onShowToast={onShowToast}
           />
         </Suspense>
       )}
