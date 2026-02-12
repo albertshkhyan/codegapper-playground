@@ -10,6 +10,8 @@ import {
     IMPORT_JSON_EXAMPLE,
     IMPORT_JSON_MULTI_EXAMPLE,
   } from '../../utils/sessionImport';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { SessionModal } from './SessionModal';
 import { GroupEditModal } from './GroupEditModal';
 import { highlightCode } from '../../shared/utils/prismLoader';
@@ -28,6 +30,8 @@ export const SessionList: React.FC<SessionListProps> = ({
   onShowToast,
 }) => {
   const sessionListRef = useRef<HTMLDivElement>(null);
+  const importPreviewRef = useRef<HTMLDivElement>(null);
+  const importFormatRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const sessions = useSessionStore((state) => state.sessions);
   const deleteSession = useSessionStore((state) => state.deleteSession);
@@ -379,6 +383,13 @@ export const SessionList: React.FC<SessionListProps> = ({
   const handleCancelImport = () => {
     setImportPreview(null);
   };
+
+  const swipeMain = useSwipeToClose(onClose);
+  const swipeImportPreview = useSwipeToClose(handleCancelImport);
+  const swipeFormat = useSwipeToClose(() => setShowImportFormat(false));
+  useFocusTrap(isOpen, sessionListRef);
+  useFocusTrap(!!importPreview, importPreviewRef);
+  useFocusTrap(showImportFormat, importFormatRef);
 
   const handleCopyImportExample = async (text: string, which: 'single' | 'multi') => {
     try {
@@ -761,7 +772,7 @@ export const SessionList: React.FC<SessionListProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose} {...swipeMain}>
         <div 
           ref={sessionListRef}
           className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[100dvh] md:max-h-[80vh] overflow-hidden flex flex-col"
@@ -942,7 +953,15 @@ export const SessionList: React.FC<SessionListProps> = ({
                                 } ${isExpandedSession ? 'rounded-b-none border-b-0' : ''}`}
                               >
                                 <GripVertical className="w-4 h-4 text-slate-500 mr-2 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSessionExpanded(session.id);
+                                  }}
+                                  className="flex-1 min-w-0 min-h-[44px] text-left py-2 -my-2 px-0 rounded hover:bg-slate-800/50 transition-colors"
+                                  title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                >
                                   <div className="flex items-center gap-2 mb-1">
                                     <h4 className="text-sm font-medium text-slate-200 truncate">
                                       {session.name}
@@ -956,7 +975,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   <p className="text-xs text-slate-400">
                                     Last modified {formatTimeAgo(session.updatedAt)}
                                   </p>
-                                </div>
+                                </button>
                                 <div className="flex items-center gap-2 ml-4">
                                   <button
                                     onClick={(e) => {
@@ -965,6 +984,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                     }}
                                     className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                     title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                    aria-hidden
                                   >
                                     {isExpandedSession ? (
                                       <ChevronDown className="w-4 h-4" />
@@ -1135,7 +1155,15 @@ export const SessionList: React.FC<SessionListProps> = ({
                             } ${isExpandedSession ? 'rounded-b-none border-b-0' : ''}`}
                           >
                             <GripVertical className="w-4 h-4 text-slate-500 mr-2 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSessionExpanded(session.id);
+                              }}
+                              className="flex-1 min-w-0 min-h-[44px] text-left py-2 -my-2 px-0 rounded hover:bg-slate-800/50 transition-colors"
+                              title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                            >
                               <div className="flex items-center gap-2 mb-1">
                                 <h4 className="text-sm font-medium text-slate-200 truncate">
                                   {session.name}
@@ -1149,7 +1177,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                               <p className="text-xs text-slate-400">
                                 Last modified {formatTimeAgo(session.updatedAt)}
                               </p>
-                            </div>
+                            </button>
                             <div className="flex items-center gap-2 ml-4">
                               <button
                                 onClick={(e) => {
@@ -1158,6 +1186,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                                 }}
                                 className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                                 title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                aria-hidden
                               >
                                 {isExpandedSession ? (
                                   <ChevronDown className="w-4 h-4" />
@@ -1252,8 +1281,9 @@ export const SessionList: React.FC<SessionListProps> = ({
       </div>
 
       {importPreview && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={handleCancelImport}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={handleCancelImport} {...swipeImportPreview}>
           <div
+            ref={importPreviewRef}
             className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-lg max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1348,8 +1378,9 @@ export const SessionList: React.FC<SessionListProps> = ({
       )}
 
       {showImportFormat && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowImportFormat(false)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowImportFormat(false)} {...swipeFormat}>
           <div
+            ref={importFormatRef}
             className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[100dvh] md:max-h-[90vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >

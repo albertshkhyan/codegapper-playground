@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Info, X } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -7,14 +9,20 @@ interface KeyboardShortcutsModalProps {
 }
 
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, contentRef);
+  const swipe = useSwipeToClose(onClose);
+
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 md:hidden"
       onClick={onClose}
+      {...swipe}
     >
       <div
+        ref={contentRef}
         className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-sm max-h-[100dvh] overflow-hidden flex flex-col m-2"
         onClick={(e) => e.stopPropagation()}
       >

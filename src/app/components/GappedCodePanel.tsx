@@ -221,6 +221,8 @@ export const GappedCodePanel = forwardRef<GappedCodePanelHandle>((_props, ref) =
                         <input
                           key={gapKey}
                           type="text"
+                          inputMode="text"
+                          autoComplete="off"
                           value={userAnswer}
                           onChange={(e) => setUserAnswer(gapId, e.target.value)}
                           onFocus={(e) => {

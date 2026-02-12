@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { HelpCircle } from 'lucide-react';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { Header } from './Header';
 import { GappedCodePanel } from './GappedCodePanel';
 
@@ -8,6 +9,8 @@ import { ResultsPanel } from './ResultsPanel';
 import { ToastContainer } from './ToastContainer';
 import { KeyboardShortcutsFooter } from './KeyboardShortcutsFooter';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { OfflineBanner } from './OfflineBanner';
+import { InstallHintBanner } from './InstallHintBanner';
 interface ToastData {
   id: string;
   message: string;
@@ -19,6 +22,7 @@ export const AppLayout: React.FC = () => {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const { canInstall } = usePWAInstall();
   
   // Touch/swipe handling for mobile
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -152,14 +156,16 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 relative">
+    <div className="min-h-[100dvh] flex flex-col bg-slate-950 relative">
       <Header 
         onShowToast={showToast} 
         onSaveSessionRef={(ref) => { saveSessionRef.current = ref; }}
         onCloseModalsRef={(ref) => { closeModalsRef.current = ref; }}
       />
+      <OfflineBanner />
+      <InstallHintBanner canInstall={canInstall} />
       <div 
-        className="flex-1 overflow-y-auto p-2 md:p-4"
+        className="flex-1 overflow-y-auto p-2 md:p-4 min-h-0"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -167,12 +173,12 @@ export const AppLayout: React.FC = () => {
           <div 
             className="flex flex-col md:flex-row gap-2 md:gap-4 mb-4" 
             style={{ 
-              height: 'calc(100vh - 180px)',
-              minHeight: 'calc(100vh - 180px)',
+              height: 'calc(100dvh - 180px)',
+              minHeight: 'calc(100dvh - 180px)',
             }}
           >
             <div 
-              className="transition-all duration-300 ease-in-out md:h-full"
+              className="transition-all duration-300 ease-in-out motion-reduce:duration-0 md:h-full"
               style={{
                 width: isMobile 
                   ? (isLeftPanelOpen ? '100%' : '48px')
@@ -194,7 +200,7 @@ export const AppLayout: React.FC = () => {
                 />
               </Suspense>
             </div>
-            <div className="flex-1 transition-all duration-300 ease-in-out md:h-full" style={{ minHeight: '300px' }}>
+            <div className="flex-1 transition-all duration-300 ease-in-out motion-reduce:duration-0 md:h-full" style={{ minHeight: '300px' }}>
               <GappedCodePanel 
                 ref={(instance) => {
                   if (instance) {
