@@ -1,12 +1,15 @@
 import type { Segment } from '../shared/lib/gapEngine/types';
 import type { GapSettings } from '../shared/lib/gapEngine/settings';
 
+export type SessionStatus = 'todo' | 'in_progress' | 'completed';
+
 export interface SessionData {
   id: string;
   name: string;
   groupName?: string; // Optional group name for categorization
   order?: number; // Optional order within group for drag and drop
   notes?: string; // Optional notes/description for the session
+  status?: SessionStatus; // Todo, In progress, Completed
   createdAt: string;
   updatedAt: string;
   inputCode: string;

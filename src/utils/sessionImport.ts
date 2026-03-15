@@ -1,7 +1,7 @@
 import type { Segment } from '../shared/lib/gapEngine/types';
 import type { GapSettings } from '../shared/lib/gapEngine/settings';
 import { defaultGapSettings } from '../shared/lib/gapEngine/settings';
-import type { SessionData } from './sessionStorage';
+import type { SessionData, SessionStatus } from './sessionStorage';
 
 /** Partial session as in an imported JSON file. Most fields optional except name, inputCode, segments, answerKey. */
 export interface SessionImportItem {
@@ -18,6 +18,7 @@ export interface SessionImportItem {
   updatedAt?: string;
   userAnswers?: Record<string, string> | Record<number, string>;
   gapSettings?: Partial<GapSettings>;
+  status?: SessionStatus;
 }
 
 /** Multi-session import payload (optional groups, array of sessions). */
@@ -145,12 +146,17 @@ export function normalizeSessionImport(item: SessionImportItem): SessionData {
   const userAnswers = normalizeAnswerKey(item.userAnswers);
   const gapSettings = deepMergeGapSettings(item.gapSettings);
 
+  const validStatus: SessionStatus | undefined = ['todo', 'in_progress', 'completed'].includes(item.status as string)
+    ? (item.status as SessionStatus)
+    : undefined;
+
   return {
     id: generateSessionId(),
     name: typeof item.name === 'string' ? item.name.trim() || 'Imported Session' : 'Imported Session',
     groupName: typeof item.groupName === 'string' ? item.groupName.trim() || undefined : undefined,
     order: typeof item.order === 'number' && Number.isInteger(item.order) ? item.order : undefined,
     notes: typeof item.notes === 'string' ? item.notes : undefined,
+    status: validStatus,
     createdAt: typeof item.createdAt === 'string' ? item.createdAt : now,
     updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : now,
     inputCode: typeof item.inputCode === 'string' ? item.inputCode : '',

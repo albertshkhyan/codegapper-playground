@@ -1,25 +1,50 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Maximize2, X, Copy, Check } from 'lucide-react';
 import { useGapStore } from '../../store/useGapStore';
 import { SUPPORTED_LANGUAGES } from '../../shared/constants/languages';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface CodeEditorPanelProps {
   isOpen: boolean;
   onToggle: () => void;
 }
 
-export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({ 
-  isOpen, 
-  onToggle
+export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
+  isOpen,
+  onToggle,
 }) => {
   const inputCode = useGapStore((state) => state.inputCode);
   const setInputCode = useGapStore((state) => state.setInputCode);
   const selectedLanguage = useGapStore((state) => state.selectedLanguage);
   const setSelectedLanguage = useGapStore((state) => state.setSelectedLanguage);
 
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const fullscreenModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isFullscreenOpen, fullscreenModalRef);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(inputCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (!isFullscreenOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreenOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isFullscreenOpen]);
+
   return (
-    <div className="flex flex-col h-full relative bg-slate-900 rounded-lg border border-slate-700 overflow-visible">
+    <div className="flex flex-col h-full min-h-0 relative bg-slate-900 rounded-lg border border-slate-700 overflow-visible">
       {/* Toggle Button - Positioned on right edge, half outside when open, fully inside when collapsed */}
           <button
         onClick={onToggle}
@@ -47,22 +72,46 @@ export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
 
       {/* Expanded State - Full Content */}
       {isOpen && (
-        <div className="flex flex-col h-full transition-opacity duration-300 ease-in-out opacity-100">
+        <div className="flex flex-col flex-1 min-h-0 transition-opacity duration-300 ease-in-out opacity-100">
           <div className="px-4 py-2 border-b border-slate-700 bg-slate-900">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-medium text-slate-200">Original Code</h2>
-              <select
-                value={selectedLanguage}
-                onChange={(e) => setSelectedLanguage(e.target.value)}
-                className="px-2 py-1 text-xs bg-slate-800 border border-slate-600 rounded text-slate-200 focus:outline-none focus:border-slate-500 hover:bg-slate-700 transition-colors"
-                title="Select programming language for syntax highlighting (Gap generation only works for JavaScript)"
-              >
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <option key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="px-2 py-1 text-xs bg-slate-800 border border-slate-600 rounded text-slate-200 focus:outline-none focus:border-slate-500 hover:bg-slate-700 transition-colors"
+                  title="Select programming language for syntax highlighting (Gap generation only works for JavaScript)"
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2 md:p-1.5 flex items-center justify-center text-slate-400 hover:text-slate-200 rounded border border-transparent hover:bg-slate-800 hover:border-slate-600 transition-colors touch-manipulation"
+                  title={copied ? 'Copied!' : 'Copy code'}
+                  aria-label={copied ? 'Copied' : 'Copy code'}
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreenOpen(true)}
+                  className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2 md:p-1.5 flex items-center justify-center text-slate-400 hover:text-slate-200 rounded border border-transparent hover:bg-slate-800 hover:border-slate-600 transition-colors touch-manipulation"
+                  title="Show original code in full screen"
+                  aria-label="Show original code in full screen"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             {selectedLanguage !== 'javascript' && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-900/20 border border-yellow-700/50 rounded text-yellow-400 text-xs">
@@ -90,6 +139,79 @@ export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
           }}
         />
       </div>
+        </div>
+      )}
+
+      {/* Fullscreen modal */}
+      {isFullscreenOpen && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-slate-950 p-2 md:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Original code full screen"
+        >
+          <div
+            ref={fullscreenModalRef}
+            className="flex flex-col flex-1 min-h-0 w-full max-w-[1400px] mx-auto bg-slate-900 rounded-lg border border-slate-700 overflow-hidden"
+          >
+            <div className="flex items-center justify-between flex-shrink-0 px-4 py-2 border-b border-slate-700 bg-slate-900">
+              <h2 className="text-sm font-medium text-slate-200">Original Code</h2>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="px-2 py-1 text-xs bg-slate-800 border border-slate-600 rounded text-slate-200 focus:outline-none focus:border-slate-500 hover:bg-slate-700 transition-colors"
+                  title="Select programming language"
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 rounded border border-transparent hover:bg-slate-800 hover:border-slate-600 transition-colors"
+                  title={copied ? 'Copied!' : 'Copy code'}
+                  aria-label={copied ? 'Copied' : 'Copy code'}
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreenOpen(false)}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 rounded border border-transparent hover:bg-slate-800 hover:border-slate-600 transition-colors"
+                  aria-label="Close full screen"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 border-t border-slate-700">
+              <Editor
+                height="100%"
+                language={selectedLanguage}
+                value={inputCode}
+                onChange={(value) => setInputCode(value ?? '')}
+                theme="vs-dark"
+                options={{
+                  readOnly: false,
+                  lineNumbers: 'on',
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                  wordWrap: 'on',
+                  automaticLayout: true,
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

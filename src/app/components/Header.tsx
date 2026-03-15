@@ -4,7 +4,8 @@ import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { useGapStore } from '../../store/useGapStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { SessionModal } from './SessionModal';
-import type { SessionData } from '../../utils/sessionStorage';
+import { sessionStorage, type SessionData } from '../../utils/sessionStorage';
+import { defaultGapSettings } from '../../shared/lib/gapEngine/settings';
 
 const SessionList = lazy(() => import('./SessionList').then((m) => ({ default: m.SessionList })));
 import codeGapperLogo from '../../assets/logos/code-gapper-logo.png';
@@ -37,9 +38,11 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
   const answerKey = useGapStore((state) => state.answerKey);
   const userAnswers = useGapStore((state) => state.userAnswers);
   const gapSettings = useGapStore((state) => state.gapSettings);
+  const status = useGapStore((state) => state.status);
   const generateGaps = useGapStore((state) => state.generateGaps);
   const setInputCode = useGapStore((state) => state.setInputCode);
   const setGapSettings = useGapStore((state) => state.setGapSettings);
+  const setStatus = useGapStore((state) => state.setStatus);
   const reset = useGapStore((state) => state.reset);
   
   const { canInstall, install } = usePWAInstall();
@@ -82,9 +85,10 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
     if (!sessionId) {
       const defaultName = generateDefaultSessionName();
       sessionId = createSession(defaultName);
+      setStatus('todo');
       isNewSession = true;
     }
-    
+
     // Save current state to session
     const savedId = saveCurrentSession({
       inputCode,
@@ -92,8 +96,9 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
       answerKey,
       userAnswers,
       gapSettings,
+      status,
     });
-    
+
     if (savedId) {
       const session = useSessionStore.getState().sessions.find(s => s.id === savedId);
       if (isNewSession) {
@@ -102,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
         onShowToast?.(`Session "${session?.name || 'Untitled'}" saved successfully`, 'success');
       }
     }
-  }, [currentSessionId, inputCode, segments, answerKey, userAnswers, gapSettings, createSession, saveCurrentSession, generateDefaultSessionName, onShowToast]);
+  }, [currentSessionId, inputCode, segments, answerKey, userAnswers, gapSettings, status, createSession, saveCurrentSession, setStatus, generateDefaultSessionName, onShowToast]);
 
   // Close all modals function
   const handleCloseModals = useCallback(() => {
@@ -128,9 +133,9 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
   };
 
   const handleCreateSession = (sessionId: string, sessionName: string) => {
-    // Set the new session as current first
     setCurrentSessionId(sessionId);
-    
+    setStatus('todo');
+
     // Save current state to new session
     saveCurrentSession({
       inputCode,
@@ -138,19 +143,20 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
       answerKey,
       userAnswers,
       gapSettings,
+      status,
     });
-    
+
     onShowToast?.(`Session "${sessionName}" created successfully`, 'success');
   };
 
   const handleLoadSession = (session: SessionData) => {
     // Restore all session data
     setInputCode(session.inputCode);
-    setGapSettings(session.gapSettings);
-    
+    setGapSettings(session.gapSettings ?? defaultGapSettings);
+    setStatus('in_progress');
+
     // Restore segments and answerKey directly (if they exist)
     if (session.segments && session.segments.length > 0) {
-      // Directly update store state
       useGapStore.setState({
         segments: session.segments,
         answerKey: session.answerKey,
@@ -158,13 +164,21 @@ export const Header: React.FC<HeaderProps> = ({ onShowToast, onSaveSessionRef, o
         hasChecked: false,
       });
     } else {
-      // If no segments, regenerate gaps after a short delay
       setTimeout(() => {
         generateGaps();
       }, 100);
     }
-    
+
     setCurrentSessionId(session.id);
+
+    // Persist session with in_progress when loaded
+    sessionStorage.save({
+      ...session,
+      status: 'in_progress',
+      updatedAt: new Date().toISOString(),
+    });
+    loadSessions();
+
     onShowToast?.(`Session "${session.name}" loaded`, 'success');
   };
 

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { HelpCircle } from 'lucide-react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { useGapStore } from '../../store/useGapStore';
 import { Header } from './Header';
 import { GappedCodePanel } from './GappedCodePanel';
 
@@ -19,6 +20,7 @@ interface ToastData {
 
 export const AppLayout: React.FC = () => {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(true);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
@@ -71,6 +73,12 @@ export const AppLayout: React.FC = () => {
   const generateGapsRef = useRef<(() => void) | undefined>(undefined);
   const saveSessionRef = useRef<(() => void) | undefined>(undefined);
   const closeModalsRef = useRef<(() => void) | undefined>(undefined);
+  const setStatus = useGapStore((s) => s.setStatus);
+
+  const handleAllCorrect = useCallback(() => {
+    setStatus('completed');
+    saveSessionRef.current?.();
+  }, [setStatus]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -193,32 +201,34 @@ export const AppLayout: React.FC = () => {
       <OfflineBanner />
       <InstallHintBanner canInstall={canInstall} />
       <div 
-        className="flex-1 overflow-y-auto p-2 md:p-4 min-h-0"
+        className="flex-1 flex flex-col overflow-y-auto p-2 md:p-4 min-h-0"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="max-w-[1400px] mx-auto flex flex-col relative">
+        <div className="flex flex-col max-w-[1400px] w-full mx-auto relative">
           <div 
-            className="flex flex-col md:flex-row gap-2 md:gap-4 mb-4" 
-            style={{ 
-              height: 'calc(100dvh - 180px)',
-              minHeight: 'calc(100dvh - 180px)',
+            className="flex flex-col md:flex-row gap-2 md:gap-4 mb-4 min-h-0 shrink-0" 
+            style={{
+              minHeight: isMobile ? 300 : 'calc(100dvh - 160px)',
+              ...(isMobile ? {} : { height: 'calc(100dvh - 160px)' }),
             }}
           >
             <div 
-              className="transition-all duration-300 ease-in-out motion-reduce:duration-0 md:h-full"
+              className="transition-all duration-300 ease-in-out motion-reduce:duration-0 min-h-0"
               style={{
-                width: isMobile 
-                  ? (isLeftPanelOpen ? '100%' : '48px')
-                  : (isLeftPanelOpen ? 'calc(50% - 8px)' : '48px'),
-                minWidth: isMobile 
-                  ? (isLeftPanelOpen ? '100%' : '48px')
-                  : (isLeftPanelOpen ? 'calc(50% - 8px)' : '48px'),
-                height: isMobile 
-                  ? (isLeftPanelOpen ? '50%' : '48px')
-                  : '100%',
-                minHeight: isMobile && isLeftPanelOpen ? '300px' : undefined,
-                flexShrink: 0,
+                ...(isMobile
+                  ? {
+                      width: '100%',
+                      flex: isLeftPanelOpen ? '1 1 0' : '0 0 48px',
+                      minHeight: isLeftPanelOpen ? 300 : 48,
+                    }
+                  : {
+                      width: isLeftPanelOpen ? 'calc(50% - 8px)' : 48,
+                      minWidth: isLeftPanelOpen ? undefined : 48,
+                      flex: '0 0 auto',
+                      alignSelf: 'stretch',
+                      height: '100%',
+                    }),
               }}
             >
               <Suspense fallback={<div className="h-full min-h-[300px] bg-slate-900/50 rounded border border-slate-700 animate-pulse" />}>
@@ -228,8 +238,26 @@ export const AppLayout: React.FC = () => {
                 />
               </Suspense>
             </div>
-            <div className="flex-1 transition-all duration-300 ease-in-out motion-reduce:duration-0 md:h-full" style={{ minHeight: '300px' }}>
-              <GappedCodePanel 
+            <div
+              className="transition-all duration-300 ease-in-out motion-reduce:duration-0 min-h-0"
+              style={{
+                ...(isMobile
+                  ? {
+                      width: '100%',
+                      flex: isBottomPanelOpen ? '1 1 0' : '0 0 48px',
+                      minHeight: isBottomPanelOpen ? 300 : 48,
+                    }
+                  : {
+                      flex: isBottomPanelOpen ? '1 1 0' : '0 0 48px',
+                      minWidth: isBottomPanelOpen ? undefined : 48,
+                      alignSelf: 'stretch',
+                      height: '100%',
+                    }),
+              }}
+            >
+              <GappedCodePanel
+                isOpen={isBottomPanelOpen}
+                onToggle={() => setIsBottomPanelOpen(!isBottomPanelOpen)}
                 ref={(instance) => {
                   if (instance) {
                     generateGapsRef.current = instance.generateGaps;
@@ -239,11 +267,14 @@ export const AppLayout: React.FC = () => {
             </div>
           </div>
           <div className="relative pb-4">
-            <ResultsPanel ref={(instance) => {
-              if (instance) {
-                checkAnswersRef.current = instance.checkAnswers;
-              }
-            }} />
+            <ResultsPanel
+              ref={(instance) => {
+                if (instance) {
+                  checkAnswersRef.current = instance.checkAnswers;
+                }
+              }}
+              onAllCorrect={handleAllCorrect}
+            />
             <div className="mt-4">
               <KeyboardShortcutsFooter />
             </div>

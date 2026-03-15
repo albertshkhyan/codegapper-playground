@@ -1,14 +1,16 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { Edit2, Trash2, X, Folder, ChevronDown, ChevronRight, GripVertical, FileText, Search, Pencil, Copy, Check, Upload, HelpCircle } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Edit2, Trash2, X, Folder, ChevronDown, ChevronRight, GripVertical, FileText, Search, Pencil, Copy, Check, Upload, Download, HelpCircle, MoreVertical } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useSessionStore } from '../../store/useSessionStore';
+import { useGapStore } from '../../store/useGapStore';
 import { sessionStorage } from '../../utils/sessionStorage';
-import type { SessionData } from '../../utils/sessionStorage';
+import type { SessionData, SessionStatus } from '../../utils/sessionStorage';
 import {
     parseSessionImportWithValidation,
     type ImportValidationResult,
     IMPORT_JSON_EXAMPLE,
     IMPORT_JSON_MULTI_EXAMPLE,
+    IMPORT_SCHEMA_VERSION,
   } from '../../utils/sessionImport';
 import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -34,9 +36,11 @@ export const SessionList: React.FC<SessionListProps> = ({
   const importFormatRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const sessions = useSessionStore((state) => state.sessions);
+  const currentSessionId = useSessionStore((state) => state.currentSessionId);
   const deleteSession = useSessionStore((state) => state.deleteSession);
   const loadSessions = useSessionStore((state) => state.loadSessions);
   const setCurrentSessionId = useSessionStore((state) => state.setCurrentSessionId);
+  const setStatus = useGapStore((state) => state.setStatus);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
@@ -49,13 +53,33 @@ export const SessionList: React.FC<SessionListProps> = ({
   const dragOverIndexRef = useRef<number | null>(null);
   const [draggedGroupName, setDraggedGroupName] = useState<string | null>(null);
   const [dragOverGroupName, setDragOverGroupName] = useState<string | null>(null);
+  const touchDragRef = useRef<{
+    type: 'session' | 'group' | null;
+    sessionId: string | null;
+    groupName: string | null;
+    startX: number;
+    startY: number;
+    isDragging: boolean;
+    lastDropGroupKey: string | null;
+    lastDropIndex: number | null;
+    lastDropGroupName: string | null;
+  }>({ type: null, sessionId: null, groupName: null, startX: 0, startY: 0, isDragging: false, lastDropGroupKey: null, lastDropIndex: null, lastDropGroupName: null });
+  const touchListenersRef = useRef<{ move: (e: TouchEvent) => void; end: (e: TouchEvent) => void } | null>(null);
+  const TOUCH_DRAG_THRESHOLD_PX = 10;
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [editingNotesMode, setEditingNotesMode] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
+  type StatusFilterValue = 'all' | SessionStatus;
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all');
+  type SortByValue = 'name' | 'updatedAt' | 'id' | 'status';
+  const [sortBy, setSortBy] = useState<SortByValue>('updatedAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [importPreview, setImportPreview] = useState<ImportValidationResult | null>(null);
   const [showImportFormat, setShowImportFormat] = useState(false);
   const [copiedImportExample, setCopiedImportExample] = useState<'single' | 'multi' | null>(null);
+  const [openActionsSessionId, setOpenActionsSessionId] = useState<string | null>(null);
+  const sessionActionsMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Group sessions by groupName
   const groupedSessions = useMemo(() => {
@@ -177,6 +201,48 @@ export const SessionList: React.FC<SessionListProps> = ({
     };
   }, [groupedSessions, searchQuery]);
 
+  const displayGroupedSessions = useMemo(() => {
+    const STATUS_ORDER: Record<SessionStatus, number> = { todo: 0, in_progress: 1, completed: 2 };
+    const filterByStatus = (list: SessionData[]): SessionData[] =>
+      statusFilter === 'all'
+        ? list
+        : list.filter((s) => (s.status ?? 'todo') === statusFilter);
+
+    const compare = (a: SessionData, b: SessionData): number => {
+      let cmp = 0;
+      if (sortBy === 'name') {
+        cmp = (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+      } else if (sortBy === 'updatedAt') {
+        cmp = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+      } else if (sortBy === 'id') {
+        cmp = (a.id || '').localeCompare(b.id || '', undefined, { sensitivity: 'base' });
+      } else {
+        const orderA = STATUS_ORDER[a.status ?? 'todo'];
+        const orderB = STATUS_ORDER[b.status ?? 'todo'];
+        cmp = orderA - orderB;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    };
+
+    const filteredGroups: Record<string, SessionData[]> = {};
+    Object.keys(filteredGroupedSessions.groups).forEach((groupName) => {
+      const filtered = filterByStatus(filteredGroupedSessions.groups[groupName]);
+      if (filtered.length > 0) {
+        filteredGroups[groupName] = [...filtered].sort(compare);
+      }
+    });
+    const filteredUncategorized = filterByStatus(filteredGroupedSessions.uncategorized);
+    const sortedUncategorized = [...filteredUncategorized].sort(compare);
+
+    const orderedGroups = filteredGroupedSessions.orderedGroups.filter((name) => filteredGroups[name]);
+
+    return {
+      groups: filteredGroups,
+      uncategorized: sortedUncategorized,
+      orderedGroups,
+    };
+  }, [filteredGroupedSessions, statusFilter, sortBy, sortDir]);
+
   // Initialize all groups as expanded when sessions change
   useMemo(() => {
     const allGroupNames = Object.keys(groupedSessions.groups);
@@ -226,6 +292,27 @@ export const SessionList: React.FC<SessionListProps> = ({
     return date.toLocaleDateString();
   };
 
+  const STATUS_LABELS: Record<SessionStatus, string> = {
+    todo: 'Todo',
+    in_progress: 'In progress',
+    completed: 'Completed',
+  };
+
+  const handleSetSessionStatus = (sessionId: string, newStatus: SessionStatus) => {
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    sessionStorage.save({
+      ...session,
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+    });
+    loadSessions();
+    if (currentSessionId === sessionId) {
+      setStatus(newStatus);
+    }
+    setOpenActionsSessionId(null);
+  };
+
   const handleLoad = (session: SessionData) => {
     onLoadSession(session);
     onClose();
@@ -252,6 +339,40 @@ export const SessionList: React.FC<SessionListProps> = ({
     setEditingGroupName(null);
     setShowGroupEditModal(false);
   };
+
+  // Close session actions dropdown when clicking outside
+  useEffect(() => {
+    if (!openActionsSessionId) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (sessionActionsMenuRef.current && !sessionActionsMenuRef.current.contains(target)) {
+        setOpenActionsSessionId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [openActionsSessionId]);
+
+  useEffect(() => {
+    if (!isOpen) setOpenActionsSessionId(null);
+  }, [isOpen]);
+
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
+    };
+  }, [isOpen]);
 
   const toggleSessionExpanded = (sessionId: string) => {
     setExpandedSessions((prev) => {
@@ -382,6 +503,23 @@ export const SessionList: React.FC<SessionListProps> = ({
 
   const handleCancelImport = () => {
     setImportPreview(null);
+  };
+
+  const handleExport = () => {
+    const payload = {
+      version: IMPORT_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      sessions,
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `codegapper-sessions-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onShowToast?.('Sessions exported', 'success');
   };
 
   const swipeMain = useSwipeToClose(onClose);
@@ -768,6 +906,153 @@ export const SessionList: React.FC<SessionListProps> = ({
     dragOverIndexRef.current = null;
   };
 
+  const removeTouchListeners = () => {
+    if (touchListenersRef.current) {
+      document.removeEventListener('touchmove', touchListenersRef.current.move);
+      document.removeEventListener('touchend', touchListenersRef.current.end, true);
+      document.removeEventListener('touchcancel', touchListenersRef.current.end, true);
+      touchListenersRef.current = null;
+    }
+  };
+
+  const handleTouchStartSession = (e: React.TouchEvent, sessionId: string) => {
+    const touch = e.changedTouches[0] ?? e.touches[0];
+    if (!touch) return;
+    touchDragRef.current = {
+      type: 'session',
+      sessionId,
+      groupName: null,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      isDragging: false,
+      lastDropGroupKey: null,
+      lastDropIndex: null,
+      lastDropGroupName: null,
+    };
+    setDraggedGroupName(null);
+    const onTouchMove = (ev: TouchEvent) => {
+      const t = ev.touches[0];
+      if (!t || !touchDragRef.current.sessionId) return;
+      const r = touchDragRef.current;
+      if (!r.isDragging) {
+        const dx = t.clientX - r.startX;
+        const dy = t.clientY - r.startY;
+        if (Math.abs(dx) > TOUCH_DRAG_THRESHOLD_PX || Math.abs(dy) > TOUCH_DRAG_THRESHOLD_PX) {
+          r.isDragging = true;
+          setDraggedSessionId(r.sessionId);
+        }
+      }
+      if (r.isDragging) {
+        ev.preventDefault();
+        const el = document.elementFromPoint(t.clientX, t.clientY);
+        const dropEl = el?.closest('[data-session-drop]');
+        if (dropEl instanceof HTMLElement) {
+          const groupKey = dropEl.getAttribute('data-session-drop-group');
+          const idx = parseInt(dropEl.getAttribute('data-session-drop-index') ?? '-1', 10);
+          const groupKeyOrUncat = groupKey !== null && groupKey !== '' ? groupKey : '__uncategorized__';
+          if (idx >= 0) {
+            touchDragRef.current.lastDropGroupKey = groupKeyOrUncat;
+            touchDragRef.current.lastDropIndex = idx;
+            setDragOverGroup(groupKeyOrUncat);
+            setDragOverIndex(idx);
+            dragOverGroupRef.current = groupKeyOrUncat;
+            dragOverIndexRef.current = idx;
+            return;
+          }
+        }
+        touchDragRef.current.lastDropGroupKey = null;
+        touchDragRef.current.lastDropIndex = null;
+        setDragOverGroup(null);
+        setDragOverIndex(null);
+        dragOverGroupRef.current = null;
+        dragOverIndexRef.current = null;
+      }
+    };
+    const onTouchEnd = (ev: TouchEvent) => {
+      const r = touchDragRef.current;
+      removeTouchListeners();
+      if (r.isDragging && r.type === 'session' && r.sessionId && r.lastDropGroupKey !== null && r.lastDropIndex !== null) {
+        ev.preventDefault();
+        const syntheticEvent = { preventDefault: () => {}, stopPropagation: () => {} } as React.DragEvent;
+        const targetGroupName = r.lastDropGroupKey === '__uncategorized__' ? undefined : r.lastDropGroupKey;
+        handleDrop(syntheticEvent, targetGroupName, r.lastDropIndex);
+      } else {
+        setDraggedSessionId(null);
+        setDragOverGroup(null);
+        setDragOverIndex(null);
+        dragOverGroupRef.current = null;
+        dragOverIndexRef.current = null;
+      }
+      touchDragRef.current = { type: null, sessionId: null, groupName: null, startX: 0, startY: 0, isDragging: false, lastDropGroupKey: null, lastDropIndex: null, lastDropGroupName: null };
+    };
+    touchListenersRef.current = { move: onTouchMove, end: onTouchEnd };
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd, { capture: true });
+    document.addEventListener('touchcancel', onTouchEnd, { capture: true });
+  };
+
+  const handleTouchStartGroup = (e: React.TouchEvent, groupName: string) => {
+    const touch = e.changedTouches[0] ?? e.touches[0];
+    if (!touch) return;
+    touchDragRef.current = {
+      type: 'group',
+      sessionId: null,
+      groupName,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      isDragging: false,
+      lastDropGroupKey: null,
+      lastDropIndex: null,
+      lastDropGroupName: null,
+    };
+    setDraggedSessionId(null);
+    const onTouchMove = (ev: TouchEvent) => {
+      const t = ev.touches[0];
+      if (!t || !touchDragRef.current.groupName) return;
+      const r = touchDragRef.current;
+      if (!r.isDragging) {
+        const dx = t.clientX - r.startX;
+        const dy = t.clientY - r.startY;
+        if (Math.abs(dx) > TOUCH_DRAG_THRESHOLD_PX || Math.abs(dy) > TOUCH_DRAG_THRESHOLD_PX) {
+          r.isDragging = true;
+          setDraggedGroupName(r.groupName);
+        }
+      }
+      if (r.isDragging) {
+        ev.preventDefault();
+        const el = document.elementFromPoint(t.clientX, t.clientY);
+        const dropEl = el?.closest('[data-group-drop]');
+        if (dropEl instanceof HTMLElement) {
+          const name = dropEl.getAttribute('data-group-drop-name');
+          if (name && name !== r.groupName) {
+            touchDragRef.current.lastDropGroupName = name;
+            setDragOverGroupName(name);
+            return;
+          }
+        }
+        touchDragRef.current.lastDropGroupName = null;
+        setDragOverGroupName(null);
+      }
+    };
+    const onTouchEnd = (ev: TouchEvent) => {
+      const r = touchDragRef.current;
+      removeTouchListeners();
+      if (r.isDragging && r.type === 'group' && r.groupName && r.lastDropGroupName) {
+        ev.preventDefault();
+        const syntheticEvent = { preventDefault: () => {}, stopPropagation: () => {} } as React.DragEvent;
+        handleGroupDrop(syntheticEvent, r.lastDropGroupName);
+      } else {
+        setDraggedGroupName(null);
+        setDragOverGroupName(null);
+      }
+      touchDragRef.current = { type: null, sessionId: null, groupName: null, startX: 0, startY: 0, isDragging: false, lastDropGroupKey: null, lastDropIndex: null, lastDropGroupName: null };
+    };
+    touchListenersRef.current = { move: onTouchMove, end: onTouchEnd };
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd, { capture: true });
+    document.addEventListener('touchcancel', onTouchEnd, { capture: true });
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -801,6 +1086,16 @@ export const SessionList: React.FC<SessionListProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={handleExport}
+                  className="min-h-[44px] min-w-[44px] px-2 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors flex items-center justify-center gap-1.5"
+                  title="Export sessions as JSON file"
+                  aria-label="Export sessions as JSON"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowImportFormat(true)}
                   className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
                   title="Expected JSON structure"
@@ -828,9 +1123,44 @@ export const SessionList: React.FC<SessionListProps> = ({
                 className="w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-600 rounded text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
               />
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs text-slate-400 shrink-0">Status:</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilterValue)}
+                className="bg-slate-700 border border-slate-600 rounded text-sm text-slate-200 px-2 py-1.5 focus:outline-none focus:border-slate-500 min-h-[36px]"
+                aria-label="Filter by status"
+              >
+                <option value="all">All</option>
+                <option value="todo">Todo</option>
+                <option value="in_progress">In progress</option>
+                <option value="completed">Completed</option>
+              </select>
+              <label className="text-xs text-slate-400 shrink-0 ml-2">Sort by:</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortByValue)}
+                className="bg-slate-700 border border-slate-600 rounded text-sm text-slate-200 px-2 py-1.5 focus:outline-none focus:border-slate-500 min-h-[36px]"
+                aria-label="Sort by field"
+              >
+                <option value="name">Name</option>
+                <option value="updatedAt">Date updated</option>
+                <option value="id">Id</option>
+                <option value="status">Status</option>
+              </select>
+              <select
+                value={sortDir}
+                onChange={(e) => setSortDir(e.target.value as 'asc' | 'desc')}
+                className="bg-slate-700 border border-slate-600 rounded text-sm text-slate-200 px-2 py-1.5 focus:outline-none focus:border-slate-500 min-h-[36px]"
+                aria-label="Sort order"
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto py-0 pl-0 pr-3 md:p-6">
             {sessions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-400 mb-4">You have no saved sessions.</p>
@@ -843,22 +1173,27 @@ export const SessionList: React.FC<SessionListProps> = ({
               </div>
             ) : (
               <>
-                {searchQuery.trim() && 
-                 filteredGroupedSessions.orderedGroups.length === 0 && 
-                 Object.keys(filteredGroupedSessions.groups).length === 0 && 
-                 filteredGroupedSessions.uncategorized.length === 0 ? (
+                {displayGroupedSessions.orderedGroups.length === 0 &&
+                 Object.keys(displayGroupedSessions.groups).length === 0 &&
+                 displayGroupedSessions.uncategorized.length === 0 ? (
                   <div className="text-center py-12">
-                    <p className="text-slate-400 mb-2">No sessions found matching "{searchQuery}"</p>
-                    <p className="text-xs text-slate-500">Try searching by session name, notes, or group name</p>
+                    {searchQuery.trim() ? (
+                      <>
+                        <p className="text-slate-400 mb-2">No sessions found matching "{searchQuery}"</p>
+                        <p className="text-xs text-slate-500">Try searching by session name, notes, or group name</p>
+                      </>
+                    ) : (
+                      <p className="text-slate-400">No sessions match the current filters.</p>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-6">
                     {/* Render grouped sessions */}
-                    {(filteredGroupedSessions.orderedGroups.length > 0 
-                      ? filteredGroupedSessions.orderedGroups 
-                      : Object.keys(filteredGroupedSessions.groups).sort()
+                    {(displayGroupedSessions.orderedGroups.length > 0
+                      ? displayGroupedSessions.orderedGroups
+                      : Object.keys(displayGroupedSessions.groups).sort()
                     ).map((groupName) => {
-                      const groupSessions = filteredGroupedSessions.groups[groupName] || [];
+                      const groupSessions = displayGroupedSessions.groups[groupName] || [];
                   if (groupSessions.length === 0) return null;
                     const isExpanded = isGroupExpanded(groupName);
                     const isDraggingGroup = draggedGroupName === groupName;
@@ -868,6 +1203,9 @@ export const SessionList: React.FC<SessionListProps> = ({
                         key={groupName} 
                         className="space-y-2"
                         draggable
+                        data-group-drop
+                        data-group-drop-name={groupName}
+                        onTouchStart={(e) => handleTouchStartGroup(e, groupName)}
                         onDragStart={(e) => handleGroupDragStart(e, groupName)}
                         onDragEnd={handleGroupDragEnd}
                         onDragOver={(e) => handleGroupDragOver(e, groupName)}
@@ -917,10 +1255,11 @@ export const SessionList: React.FC<SessionListProps> = ({
                               e.stopPropagation();
                               handleEditGroup(groupName);
                             }}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors opacity-0 group-hover:opacity-100"
+                            className="min-h-[48px] min-w-[48px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:bg-slate-600 rounded-lg transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 touch-manipulation"
                             title="Rename group"
+                            aria-label="Rename group"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Edit2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                           </button>
                         </div>
                         {isExpanded && groupSessions.map((session, index) => {
@@ -939,6 +1278,10 @@ export const SessionList: React.FC<SessionListProps> = ({
                             >
                               <div
                                 draggable
+                                data-session-drop
+                                data-session-drop-group={groupKey}
+                                data-session-drop-index={index}
+                                onTouchStart={(e) => handleTouchStartSession(e, session.id)}
                                 onDragStart={(e) => handleDragStart(e, session.id)}
                                 onDragEnd={handleDragEnd}
                                 onDragOver={(e) => handleDragOver(e, groupName, index)}
@@ -962,10 +1305,22 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   className="flex-1 min-w-0 min-h-[44px] text-left py-2 -my-2 px-0 rounded hover:bg-slate-800/50 transition-colors"
                                   title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
                                 >
-                                  <div className="flex items-center gap-2 mb-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <h4 className="text-sm font-medium text-slate-200 truncate">
                                       {session.name}
                                     </h4>
+                                    <span
+                                      className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                        (session.status ?? 'todo') === 'completed'
+                                          ? 'bg-emerald-900/60 text-emerald-300'
+                                          : (session.status ?? 'todo') === 'in_progress'
+                                            ? 'bg-amber-900/60 text-amber-300'
+                                            : 'bg-slate-700 text-slate-400'
+                                      }`}
+                                      title={`Status: ${STATUS_LABELS[session.status ?? 'todo']}`}
+                                    >
+                                      {STATUS_LABELS[session.status ?? 'todo']}
+                                    </span>
                                     {hasNotes && (
                                       <span className="inline-flex items-center" title="Has notes">
                                         <FileText className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
@@ -976,52 +1331,85 @@ export const SessionList: React.FC<SessionListProps> = ({
                                     Last modified {formatTimeAgo(session.updatedAt)}
                                   </p>
                                 </button>
-                                <div className="flex items-center gap-2 ml-4">
+                                <div className="flex items-center gap-3 md:gap-2 ml-2 md:ml-4 shrink-0 flex-shrink-0">
                                   <button
+                                    type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleSessionExpanded(session.id);
                                     }}
-                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                    className="min-h-[48px] min-w-[48px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:bg-slate-600 rounded-lg transition-colors touch-manipulation"
                                     title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                    aria-label={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
                                     aria-hidden
                                   >
                                     {isExpandedSession ? (
-                                      <ChevronDown className="w-4 h-4" />
+                                      <ChevronDown className="w-5 h-5 md:w-4 md:h-4" />
                                     ) : (
-                                      <ChevronRight className="w-4 h-4" />
+                                      <ChevronRight className="w-5 h-5 md:w-4 md:h-4" />
                                     )}
                                   </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleLoad(session);
-                                    }}
-                                    className="min-h-[44px] min-w-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors flex items-center justify-center"
-                                    title="Load session"
+                                  <div
+                                    ref={openActionsSessionId === session.id ? sessionActionsMenuRef : null}
+                                    className="relative"
                                   >
-                                    Load
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleRename(session.id);
-                                    }}
-                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
-                                    title="Rename session"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(session.id);
-                                    }}
-                                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                                    title="Delete session"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenActionsSessionId(openActionsSessionId === session.id ? null : session.id);
+                                      }}
+                                      className="min-h-[48px] min-w-[48px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:bg-slate-600 rounded-lg transition-colors touch-manipulation"
+                                      title="Session actions"
+                                      aria-label="Session actions"
+                                      aria-expanded={openActionsSessionId === session.id}
+                                    >
+                                      <MoreVertical className="w-5 h-5 md:w-4 md:h-4" />
+                                    </button>
+                                    {openActionsSessionId === session.id && (
+                                      <div className="absolute right-0 top-full mt-1 py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[160px]">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleLoad(session); setOpenActionsSessionId(null); }}
+                                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 active:bg-slate-600 min-h-[44px] touch-manipulation"
+                                        >
+                                          Load
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleRename(session.id); setOpenActionsSessionId(null); }}
+                                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 active:bg-slate-600 min-h-[44px] touch-manipulation"
+                                        >
+                                          <Edit2 className="w-4 h-4 shrink-0" /> Rename
+                                        </button>
+                                        <div className="border-t border-slate-600 my-1" aria-hidden />
+                                        {(['todo', 'in_progress', 'completed'] as const).map((s) => (
+                                          <button
+                                            key={s}
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); handleSetSessionStatus(session.id, s); }}
+                                            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm min-h-[44px] touch-manipulation ${
+                                              (session.status ?? 'todo') === s
+                                                ? 'text-amber-300 bg-slate-700/80'
+                                                : 'text-slate-200 hover:bg-slate-700 active:bg-slate-600'
+                                            }`}
+                                          >
+                                            <span className="w-4 shrink-0 inline-flex justify-center">
+                                              {(session.status ?? 'todo') === s ? <Check className="w-4 h-4" /> : null}
+                                            </span>
+                                            {STATUS_LABELS[s]}
+                                          </button>
+                                        ))}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleDelete(session.id); setOpenActionsSessionId(null); }}
+                                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-red-400 hover:bg-slate-700 active:bg-slate-600 min-h-[44px] touch-manipulation"
+                                        >
+                                          <Trash2 className="w-4 h-4 shrink-0" /> Delete
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                               {isExpandedSession && (
@@ -1045,22 +1433,24 @@ export const SessionList: React.FC<SessionListProps> = ({
                                           Supports plain text. Use markdown-style formatting for better readability.
                                         </p>
                                       </div>
-                                      <div className="flex items-center justify-end gap-2">
+                                      <div className="flex items-center justify-end gap-3">
                                         <button
+                                          type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleCancelEditNotes(session.id);
                                           }}
-                                          className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors"
+                                          className="min-h-[44px] px-4 py-2.5 md:py-1.5 text-sm md:text-xs bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 rounded-lg border border-slate-600 transition-colors touch-manipulation"
                                         >
                                           Cancel
                                         </button>
                                         <button
+                                          type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleSaveNotes(session.id);
                                           }}
-                                          className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-slate-200 rounded border border-green-700 transition-colors"
+                                          className="min-h-[44px] px-4 py-2.5 md:py-1.5 text-sm md:text-xs bg-green-600 hover:bg-green-700 active:bg-green-800 text-slate-200 rounded-lg border border-green-700 transition-colors touch-manipulation"
                                         >
                                           Save Notes
                                         </button>
@@ -1098,7 +1488,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                   })}
 
                     {/* Render uncategorized sessions */}
-                    {filteredGroupedSessions.uncategorized.length > 0 && (
+                    {displayGroupedSessions.uncategorized.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 mb-2 group">
                       <button
@@ -1122,11 +1512,11 @@ export const SessionList: React.FC<SessionListProps> = ({
                           Uncategorized
                         </h3>
                         <span className="text-xs text-slate-500">
-                          ({filteredGroupedSessions.uncategorized.length})
+                          ({displayGroupedSessions.uncategorized.length})
                         </span>
                       </button>
                         </div>
-                        {isGroupExpanded('__uncategorized__') && filteredGroupedSessions.uncategorized.map((session, index) => {
+                        {isGroupExpanded('__uncategorized__') && displayGroupedSessions.uncategorized.map((session, index) => {
                       const isDragging = draggedSessionId === session.id;
                       const isDragOver = dragOverGroup === '__uncategorized__' && dragOverIndex === index;
                       const isExpandedSession = isSessionExpanded(session.id);
@@ -1141,6 +1531,10 @@ export const SessionList: React.FC<SessionListProps> = ({
                         >
                           <div
                             draggable
+                            data-session-drop
+                            data-session-drop-group=""
+                            data-session-drop-index={index}
+                            onTouchStart={(e) => handleTouchStartSession(e, session.id)}
                             onDragStart={(e) => handleDragStart(e, session.id)}
                             onDragEnd={handleDragEnd}
                             onDragOver={(e) => handleDragOver(e, undefined as string | undefined, index)}
@@ -1164,10 +1558,22 @@ export const SessionList: React.FC<SessionListProps> = ({
                               className="flex-1 min-w-0 min-h-[44px] text-left py-2 -my-2 px-0 rounded hover:bg-slate-800/50 transition-colors"
                               title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
                             >
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <h4 className="text-sm font-medium text-slate-200 truncate">
                                   {session.name}
                                 </h4>
+                                <span
+                                  className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                    (session.status ?? 'todo') === 'completed'
+                                      ? 'bg-emerald-900/60 text-emerald-300'
+                                      : (session.status ?? 'todo') === 'in_progress'
+                                        ? 'bg-amber-900/60 text-amber-300'
+                                        : 'bg-slate-700 text-slate-400'
+                                  }`}
+                                  title={`Status: ${STATUS_LABELS[session.status ?? 'todo']}`}
+                                >
+                                  {STATUS_LABELS[session.status ?? 'todo']}
+                                </span>
                                 {hasNotes && (
                                   <span className="inline-flex items-center" title="Has notes">
                                     <FileText className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
@@ -1178,52 +1584,85 @@ export const SessionList: React.FC<SessionListProps> = ({
                                 Last modified {formatTimeAgo(session.updatedAt)}
                               </p>
                             </button>
-                            <div className="flex items-center gap-2 ml-4">
+                            <div className="flex items-center gap-3 md:gap-2 ml-2 md:ml-4 shrink-0 flex-shrink-0">
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleSessionExpanded(session.id);
                                 }}
-                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+                                className="min-h-[48px] min-w-[48px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:bg-slate-600 rounded-lg transition-colors touch-manipulation"
                                 title={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
+                                aria-label={isExpandedSession ? 'Collapse notes' : 'Expand notes'}
                                 aria-hidden
                               >
                                 {isExpandedSession ? (
-                                  <ChevronDown className="w-4 h-4" />
+                                  <ChevronDown className="w-5 h-5 md:w-4 md:h-4" />
                                 ) : (
-                                  <ChevronRight className="w-4 h-4" />
+                                  <ChevronRight className="w-5 h-5 md:w-4 md:h-4" />
                                 )}
                               </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleLoad(session);
-                                }}
-                                className="min-h-[44px] min-w-[44px] px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded text-xs transition-colors flex items-center justify-center"
-                                title="Load session"
+                              <div
+                                ref={openActionsSessionId === session.id ? sessionActionsMenuRef : null}
+                                className="relative"
                               >
-                                Load
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRename(session.id);
-                                }}
-                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
-                                title="Rename session"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(session.id);
-                                }}
-                                className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                                title="Delete session"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenActionsSessionId(openActionsSessionId === session.id ? null : session.id);
+                                  }}
+                                  className="min-h-[48px] min-w-[48px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:bg-slate-600 rounded-lg transition-colors touch-manipulation"
+                                  title="Session actions"
+                                  aria-label="Session actions"
+                                  aria-expanded={openActionsSessionId === session.id}
+                                >
+                                  <MoreVertical className="w-5 h-5 md:w-4 md:h-4" />
+                                </button>
+                                {openActionsSessionId === session.id && (
+                                  <div className="absolute right-0 top-full mt-1 py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[160px]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleLoad(session); setOpenActionsSessionId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 active:bg-slate-600 min-h-[44px] touch-manipulation"
+                                    >
+                                      Load
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleRename(session.id); setOpenActionsSessionId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-700 active:bg-slate-600 min-h-[44px] touch-manipulation"
+                                    >
+                                      <Edit2 className="w-4 h-4 shrink-0" /> Rename
+                                    </button>
+                                    <div className="border-t border-slate-600 my-1" aria-hidden />
+                                    {(['todo', 'in_progress', 'completed'] as const).map((s) => (
+                                      <button
+                                        key={s}
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); handleSetSessionStatus(session.id, s); }}
+                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm min-h-[44px] touch-manipulation ${
+                                          (session.status ?? 'todo') === s
+                                            ? 'text-amber-300 bg-slate-700/80'
+                                            : 'text-slate-200 hover:bg-slate-700 active:bg-slate-600'
+                                        }`}
+                                      >
+                                        <span className="w-4 shrink-0 inline-flex justify-center">
+                                          {(session.status ?? 'todo') === s ? <Check className="w-4 h-4" /> : null}
+                                        </span>
+                                        {STATUS_LABELS[s]}
+                                      </button>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleDelete(session.id); setOpenActionsSessionId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm text-red-400 hover:bg-slate-700 active:bg-slate-600 min-h-[44px] touch-manipulation"
+                                    >
+                                      <Trash2 className="w-4 h-4 shrink-0" /> Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           {isExpandedSession && (
@@ -1245,22 +1684,24 @@ export const SessionList: React.FC<SessionListProps> = ({
                                   Supports plain text. Use markdown-style formatting for better readability.
                                 </p>
                               </div>
-                              <div className="flex items-center justify-end gap-2">
+                              <div className="flex items-center justify-end gap-3">
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     toggleSessionExpanded(session.id);
                                   }}
-                                  className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors"
+                                  className="min-h-[44px] px-4 py-2.5 md:py-1.5 text-sm md:text-xs bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 rounded-lg border border-slate-600 transition-colors touch-manipulation"
                                 >
                                   Cancel
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleSaveNotes(session.id);
                                   }}
-                                  className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-slate-200 rounded border border-green-700 transition-colors"
+                                  className="min-h-[44px] px-4 py-2.5 md:py-1.5 text-sm md:text-xs bg-green-600 hover:bg-green-700 active:bg-green-800 text-slate-200 rounded-lg border border-green-700 transition-colors touch-manipulation"
                                 >
                                   Save Notes
                                 </button>
