@@ -106,15 +106,16 @@ export const SessionModal: React.FC<SessionModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div ref={sessionModalRef} className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div ref={sessionModalRef} className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <h2 className="text-lg font-semibold text-slate-200">
             {mode === 'create' ? 'Create New Session' : 'Rename Session'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors rounded touch-manipulation"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -126,7 +127,7 @@ export const SessionModal: React.FC<SessionModalProps> = ({
             <label htmlFor="session-group" className="block text-sm font-medium text-slate-300 mb-2">
               Group (Optional)
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 min-w-0">
               <select
                 id="session-group"
                 value={selectedGroup}
@@ -134,7 +135,7 @@ export const SessionModal: React.FC<SessionModalProps> = ({
                   setSelectedGroup(e.target.value);
                   setError('');
                 }}
-                className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded text-slate-200 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+                className="min-w-0 flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded text-slate-200 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 text-sm"
               >
                 <option value="">No Group</option>
                 {groups.map((group) => (
@@ -146,11 +147,12 @@ export const SessionModal: React.FC<SessionModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowGroupModal(true)}
-                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors text-sm flex items-center gap-1.5"
+                className="shrink-0 min-h-[40px] px-3 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 rounded border border-slate-600 transition-colors text-sm flex items-center gap-1.5 touch-manipulation"
                 title="Create new group"
+                aria-label="Create new group"
               >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">New</span>
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>New</span>
               </button>
             </div>
           </div>
@@ -175,17 +177,17 @@ export const SessionModal: React.FC<SessionModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors text-sm"
+              className="min-h-[44px] px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 rounded-lg border border-slate-600 transition-colors text-sm touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-slate-200 rounded border border-blue-700 transition-colors text-sm"
+              className="min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-slate-200 rounded-lg border border-blue-700 transition-colors text-sm touch-manipulation"
             >
               {mode === 'create' ? 'Create' : 'Rename'}
             </button>

@@ -1,12 +1,17 @@
 import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import { CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useGapStore } from '../../store/useGapStore';
+
 export interface ResultsPanelHandle {
   checkAnswers: () => void;
   expandAnswers: () => void;
 }
 
-export const ResultsPanel = forwardRef<ResultsPanelHandle>((_props, ref) => {
+export interface ResultsPanelProps {
+  onAllCorrect?: () => void;
+}
+
+export const ResultsPanel = forwardRef<ResultsPanelHandle, ResultsPanelProps>(({ onAllCorrect }, ref) => {
   const validateAnswers = useGapStore((state) => state.validateAnswers);
   const answerKey = useGapStore((state) => state.answerKey);
   const segments = useGapStore((state) => state.segments);
@@ -14,12 +19,12 @@ export const ResultsPanel = forwardRef<ResultsPanelHandle>((_props, ref) => {
   const setHasChecked = useGapStore((state) => state.setHasChecked);
   const [showAnswers, setShowAnswers] = useState(false);
   const answersSectionRef = useRef<HTMLDivElement>(null);
-  
+
   // Reset show answers when new gaps are generated
   useEffect(() => {
     setShowAnswers(false);
   }, [segments.length]);
-  
+
   // Only validate if user has explicitly checked answers
   const validation = hasChecked ? validateAnswers() : {
     correctCount: 0,
@@ -29,6 +34,13 @@ export const ResultsPanel = forwardRef<ResultsPanelHandle>((_props, ref) => {
     hint: 'Click "Check Answers" to validate your responses.',
   };
   const { correctCount, totalCount, correctGaps, incorrectGaps, hint } = validation;
+
+  // When user has checked and all answers are correct, mark session completed and persist
+  useEffect(() => {
+    if (hasChecked && totalCount > 0 && correctCount === totalCount) {
+      onAllCorrect?.();
+    }
+  }, [hasChecked, correctCount, totalCount, onAllCorrect]);
 
   const handleCheckAnswers = () => {
     setHasChecked(true);

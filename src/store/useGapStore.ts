@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { SessionStatus } from '../utils/sessionStorage';
 import { validateAnswers as validateAnswersPure } from '../shared/lib/gapEngine/validateAnswers';
 import type { Segment } from '../shared/lib/gapEngine/types';
 import type { GapSettings } from '../shared/lib/gapEngine/settings';
@@ -11,13 +12,15 @@ interface GapStore {
   answerKey: Record<number, string>;
   userAnswers: Record<number, string>;
   gapSettings: GapSettings;
+  status: SessionStatus;
   hasChecked: boolean;
   selectedLanguage: string;
-  
+
   setInputCode: (code: string) => void;
   generateGaps: () => void;
   setUserAnswer: (gapId: number, value: string) => void;
   setGapSettings: (settings: GapSettings) => void;
+  setStatus: (status: SessionStatus) => void;
   resetGapSettings: () => void;
   setHasChecked: (checked: boolean) => void;
   setSelectedLanguage: (language: string) => void;
@@ -37,6 +40,7 @@ const initialState = {
   answerKey: {},
   userAnswers: {},
   gapSettings: defaultGapSettings,
+  status: 'todo' as SessionStatus,
   hasChecked: false,
   selectedLanguage: DEFAULT_LANGUAGE,
 };
@@ -72,6 +76,10 @@ export const useGapStore = create<GapStore>((set, get) => ({
 
   setGapSettings: (settings: GapSettings) => {
     set({ gapSettings: settings });
+  },
+
+  setStatus: (status: SessionStatus) => {
+    set({ status });
   },
 
   resetGapSettings: () => {

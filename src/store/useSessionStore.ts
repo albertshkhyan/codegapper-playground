@@ -35,6 +35,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       groupName,
       createdAt: now,
       updatedAt: now,
+      status: 'todo',
       inputCode: '',
       segments: [],
       answerKey: {},
