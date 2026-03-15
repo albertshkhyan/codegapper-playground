@@ -80,6 +80,15 @@ export const SessionList: React.FC<SessionListProps> = ({
   const [copiedImportExample, setCopiedImportExample] = useState<'single' | 'multi' | null>(null);
   const [openActionsSessionId, setOpenActionsSessionId] = useState<string | null>(null);
   const sessionActionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    const m = window.matchMedia('(pointer: coarse)');
+    const update = () => setIsTouchDevice(m.matches);
+    update();
+    m.addEventListener('change', update);
+    return () => m.removeEventListener('change', update);
+  }, []);
 
   // Group sessions by groupName
   const groupedSessions = useMemo(() => {
@@ -1202,7 +1211,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                       <div 
                         key={groupName} 
                         className="space-y-2"
-                        draggable
+                        draggable={!isTouchDevice}
                         data-group-drop
                         data-group-drop-name={groupName}
                         onTouchStart={(e) => handleTouchStartGroup(e, groupName)}
@@ -1277,7 +1286,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                               className="ml-6 space-y-0"
                             >
                               <div
-                                draggable
+                                draggable={!isTouchDevice}
                                 data-session-drop
                                 data-session-drop-group={groupKey}
                                 data-session-drop-index={index}
@@ -1530,7 +1539,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                           className="ml-6 space-y-0"
                         >
                           <div
-                            draggable
+                            draggable={!isTouchDevice}
                             data-session-drop
                             data-session-drop-group=""
                             data-session-drop-index={index}

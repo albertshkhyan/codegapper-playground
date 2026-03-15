@@ -210,7 +210,7 @@ export const AppLayout: React.FC = () => {
             className="flex flex-col md:flex-row gap-2 md:gap-4 mb-4 min-h-0 shrink-0" 
             style={{
               minHeight: isMobile ? 300 : 'calc(100dvh - 160px)',
-              ...(isMobile ? {} : { height: 'calc(100dvh - 160px)' }),
+              height: 'calc(100dvh - 160px)',
             }}
           >
             <div 

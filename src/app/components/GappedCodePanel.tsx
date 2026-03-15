@@ -125,9 +125,9 @@ export const GappedCodePanel = forwardRef<GappedCodePanelHandle, GappedCodePanel
           onToggle();
         }
       }}
-      style={{ left: '50%', top: isOpen ? 0 : '50%' }}
+      style={{ left: '50%', top: isOpen ? '100%' : '50%' }}
       className={`absolute -translate-x-1/2 -translate-y-1/2 z-30 w-12 md:w-12 h-8 md:h-6 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-600 flex items-center justify-center transition-all duration-300 ease-in-out motion-reduce:duration-0 group shadow-lg touch-manipulation min-h-[44px] md:hidden ${
-        isOpen ? 'rounded-b-md' : 'rounded-md'
+        isOpen ? 'rounded-t-md' : 'rounded-md'
       }`}
       aria-label={isOpen ? 'Collapse bottom panel' : 'Expand bottom panel'}
       aria-expanded={isOpen}
